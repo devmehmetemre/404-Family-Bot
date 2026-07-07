@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, ApplicationCommandType, ApplicationCommandOptionType, PermissionsBitField, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, ApplicationCommandType, ApplicationCommandOptionType, PermissionsBitField, EmbedBuilder, MessageFlags, ActivityType } = require('discord.js');
 require('dotenv').config();
 
 const client = new Client({
@@ -39,8 +39,16 @@ async function guvenliDM(member, mesaj) {
 // Güvenli toplu DM göndermek için gecikme fonksiyonu (Mil saniye cinsinden)
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
     console.log(`${client.user.tag} aktif!`);
+
+    // --- BOT DURUMU (CUSTOM STATUS / OYNUYOR) ---
+    client.user.setPresence({
+        activities: [{ 
+            name: '404 Family is The Best!', 
+            type: ActivityType.Playing // Oynuyor olarak gösterir
+        }],
+        status: 'online', // Botu çevrimiçi (yeşil) gösterir
 
     const commands = [
         {
