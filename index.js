@@ -49,6 +49,7 @@ client.once('clientReady', async () => {
             type: ActivityType.Playing // Oynuyor olarak gösterir
         }],
         status: 'online', // Botu çevrimiçi (yeşil) gösterir
+     });
 
     const commands = [
         {
