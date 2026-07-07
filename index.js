@@ -12,7 +12,7 @@ const client = new Client({
 });
 
 // --- AYARLAR ---
-const YETKILI_ROLLER = ['1519479137360674868', '1514368329161113790', '1504510912919371816']; // Genel komutları kullanabilecek rol ID'leri
+const YETKILI_ROLLER = ['1519479137360674868', '1504510912919371816']; // Genel komutları kullanabilecek rol ID'leri
 const IP_BAN_YETKILI_ROL = '1519479137360674868'; // /ipyasakla komutunu kullanabilecek TEK rol ID'si
 // ----------------
 
@@ -35,6 +35,9 @@ async function guvenliDM(member, mesaj) {
         // Kullanıcının DM'leri kapalıysa botun çökmesini önler
     }
 }
+
+// Güvenli toplu DM göndermek için gecikme fonksiyonu (Mil saniye cinsinden)
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 client.once('ready', async () => {
     console.log(`${client.user.tag} aktif!`);
@@ -89,7 +92,7 @@ client.once('ready', async () => {
         },
         {
             name: 'cekilis',
-            description: 'Canlı süreli çekiliş başlatır (@everyone etiketli)',
+            description: 'Canlı süreli çekiliş başlatır (@everyone ve Üyelere DM)',
             options: [
                 { name: 'sure', description: 'Saniye cinsinden süre', type: ApplicationCommandOptionType.Integer, required: true },
                 { name: 'odul', description: 'Çekiliş ödülü', type: ApplicationCommandOptionType.String, required: true }
@@ -97,7 +100,7 @@ client.once('ready', async () => {
         },
         {
             name: 'duyuru',
-            description: 'Sunucuda duyuru yapar (@everyone etiketli)',
+            description: 'Sunucuda duyuru yapar (@everyone ve Üyelere DM)',
             options: [
                 { name: 'mesaj', description: 'Duyurulacak metin', type: ApplicationCommandOptionType.String, required: true }
             ]
@@ -143,25 +146,6 @@ client.on('messageCreate', async (message) => {
         const rastgele = cevaplar[Math.floor(Math.random() * cevaplar.length)];
         return message.reply(rastgele);
     }
-
-    if (message.mentions.members.size > 0 && !message.mentions.everyone) {
-        message.mentions.members.forEach(async (hedefUye) => {
-            if (hedefUye.user.bot || hedefUye.id === message.author.id) return;
-
-            const dmEmbed = new EmbedBuilder()
-                .setTitle('🔔 Sunucuda Etiketlendiniz!')
-                .setDescription(`**${message.guild.name}** sunucusunda bir mesajda etiketlendiniz.`)
-                .addFields(
-                    { name: 'Etiketleyen', value: `${message.author.tag} (${message.author.toString()})`, inline: true },
-                    { name: 'Kanal', value: `${message.channel.name} (${message.channel.toString()})`, inline: true },
-                    { name: 'Mesaj İçeriği', value: message.content || '*[Mesaj içeriği metin değil veya boş]*' }
-                )
-                .setColor('#ffaa00')
-                .setTimestamp();
-
-            await guvenliDM(hedefUye, { embeds: [dmEmbed] });
-        });
-    }
 });
 
 client.on('interactionCreate', async (interaction) => {
@@ -202,7 +186,6 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (commandName === 'ipyasakla') {
-        // Zaman aşımını önlemek için yanıtı erteliyoruz
         await interaction.deferReply({ ephemeral: true });
 
         const user = options.getMember('kullanici');
@@ -263,7 +246,7 @@ client.on('interactionCreate', async (interaction) => {
 
         await user.timeout(null);
 
-        const dmEmbed = new EmbedBuilder()
+        const dmEmbed = new Builder()
             .setTitle('🔊 Susturmanız Kaldırıldı')
             .setDescription(`**${guild.name}** sunucusundaki susturmanız kaldırıldı.`)
             .addFields({ name: 'İşlemi Yapan Yetkili', value: `${yetkili.tag}`, inline: true })
@@ -291,7 +274,7 @@ client.on('interactionCreate', async (interaction) => {
         let kalanSure = options.getInteger('sure');
         const odul = options.getString('odul');
 
-        await interaction.reply({ content: 'Çekiliş sistemi kuruluyor...', ephemeral: true });
+        await interaction.reply({ content: 'Çekiliş sistemi kuruluyor ve üyelere DM bildirimi gönderiliyor...', ephemeral: true });
 
         const embed = new EmbedBuilder()
             .setTitle('🎉 ÇEKİLİŞ BAŞLADI 🎉')
@@ -302,6 +285,25 @@ client.on('interactionCreate', async (interaction) => {
 
         const msg = await channel.send({ content: '@everyone yeni çekiliş başladı!', embeds: [embed], allowedMentions: { parse: ['everyone'] } });
         await msg.react('🎉');
+
+        // --- ÇEKİLİŞ TOPLU DM SİSTEMİ ---
+        const dmEmbedCekilis = new EmbedBuilder()
+            .setTitle('🎉 Sunucuda Çekiliş Başladı!')
+            .setDescription(`**${guild.name}** sunucusunda harika bir çekiliş başladı, kaçırma!`)
+            .addFields({ name: '🎁 Ödül', value: odul })
+            .setColor('#ff0000')
+            .setTimestamp();
+
+        const uyelerCekilis = await guild.members.fetch();
+        (async () => {
+            for (const [id, uye] of uyelerCekilis) {
+                if (!uye.user.bot) {
+                    await guvenliDM(uye, { embeds: [dmEmbedCekilis] });
+                    await sleep(3000); // 3 saniye gecikme (Güvenlik Duvarı İçin)
+                }
+            }
+        })();
+        // ---------------------------------
 
         const interval = setInterval(async () => {
             kalanSure -= 3;
@@ -391,8 +393,26 @@ client.on('interactionCreate', async (interaction) => {
             .setColor('#00ff00')
             .setTimestamp();
 
-        await interaction.reply({ content: 'Duyuru gönderiliyor...', ephemeral: true });
+        await interaction.reply({ content: 'Duyuru kanala gönderiliyor ve üyelere tek tek DM ile iletiliyor...', ephemeral: true });
         await channel.send({ content: '@everyone', embeds: [embed], allowedMentions: { parse: ['everyone'] } });
+
+        // --- DUYURU TOPLU DM SİSTEMİ ---
+        const dmEmbedDuyuru = new EmbedBuilder()
+            .setTitle(`📢 ${guild.name} Sunucusundan Yeni Duyuru!`)
+            .setDescription(duyuruMetni)
+            .setColor('#00ff00')
+            .setTimestamp();
+
+        const uyelerDuyuru = await guild.members.fetch();
+        (async () => {
+            for (const [id, uye] of uyelerDuyuru) {
+                if (!uye.user.bot) {
+                    await guvenliDM(uye, { embeds: [dmEmbedDuyuru] });
+                    await sleep(3000); // 3 saniye gecikme (Güvenlik Duvarı İçin)
+                }
+            }
+        })();
+        // -------------------------------
     }
 
     if (commandName === 'uyar') {
@@ -454,7 +474,7 @@ client.on('interactionCreate', async (interaction) => {
         await guvenliDM(user, { embeds: [dmEmbed] });
         await user.kick(`Yetkili: ${yetkili.tag} | Sebep: ${sebep}`);
         await interaction.reply({ content: `${user.user.tag} sunucudan atıldı.`, ephemeral: true });
-        await channel.send({ content: `${user.user.tag} sunucudan atılmıştır. Yetkili: ${yetkili.toString()}\nSebep: ${sep}` });
+        await channel.send({ content: `${user.user.tag} sunucudan atılmıştır. Yetkili: ${yetkili.toString()}\nSebep: ${sebep}` });
     }
 });
 
