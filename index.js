@@ -89,7 +89,8 @@ function cooldownKontrol(userId) {
     return null;
 }
 
-client.once('clientReady', async () => {
+// DOĞRU EVENT ADI: 'ready' yapıldı
+client.once('ready', async () => {
     console.log(`${client.user.tag} aktif!`);
 
     client.user.setPresence({
@@ -334,6 +335,18 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
     const { commandName, options, channel, guild, user: yetkili } = interaction;
 
+    // --- MINI GAME COOLDOWN KONTROLÜ (GİRİŞ KILİDİ) ---
+    const miniOyunlar = ['slots', 'yazıtura', 'zar'];
+    if (miniOyunlar.includes(commandName)) {
+        const kalanSaniye = cooldownKontrol(interaction.user.id);
+        if (kalanSaniye) {
+            return interaction.reply({ 
+                content: `⏳ **Yavaşla Dostum!** Mini oyun komutları arasında ortak cooldown var. Tekrar oynamak için **${kalanSaniye} saniye** beklemelisin.`, 
+                flags: [MessageFlags.Ephemeral] 
+            });
+        }
+    }
+
     // --- HERKESE AÇIK KOMUTLAR ---
     const herkesKullanabilir = ['istatistik', 'yardım', 'profil', 'bakiye', 'gönder', 'yazıtura', 'zar', 'slots', 'günlük'];
 
@@ -427,7 +440,7 @@ client.on('interactionCreate', async (interaction) => {
                 );
 
                 if (finalListe.length === 0) {
-                    const bitisEmbed = new EmbedBuilder().setTitle('🪙 Çekiliş Sona Erdi').setDescription(`❌ **Sonuç:** Katılım olmadığı için talihli seçilemedi.`).setColor('#4F545C').setTimestamp();
+                    const bitisEmbed = new EmbedBuilder().setTitle('🪙 Çekiliş Sona Erdi').setDescription(`❌ **Sonucu:** Katılım olmadığı için talihli seçilemedi.`).setColor('#4F545C').setTimestamp();
                     await msg.edit({ embeds: [bitisEmbed], components: [pasifButonlar] });
                     cekilisKatilimcilari.delete(cekilisId);
                     return channel.send({ content: `⚠️ Çekilişe kimse katılmadığı için para kasada kaldı.` });
@@ -458,7 +471,7 @@ client.on('interactionCreate', async (interaction) => {
     if (commandName === 'profil') {
         const hedefUye = options.getUser('kullanici') || interaction.user;
         const uVeri = profilGereksinim(hedefUye.id);
-        const gerekenXp = uVeri.seviye * 100;
+        const gerekenXp = uVeri.seviye * 100; // HATA DÜZELTİLDİ: requiredXp yerine gerekenXp kullanıldı
 
         const profilEmbed = new EmbedBuilder()
             .setTitle(`📊 ${hedefUye.username} - Oyuncu Profili`)
@@ -467,7 +480,7 @@ client.on('interactionCreate', async (interaction) => {
             .addFields(
                 { name: '🪙 Hesap Bakiyesi', value: `\`${uVeri.bakiye} adet [404 Nakit]\``, inline: true },
                 { name: '✨ Seviye (Level)', value: `\`🌟 Level ${uVeri.seviye}\``, inline: true },
-                { name: '📊 Aktiflik Gelişimi (XP)', value: `\`${uVeri.xp} / ${gerekenXp} XP\` (Sonraki seviyeye \`${requiredXp - uVeri.xp}\` kaldı.)`, inline: false }
+                { name: '📊 Aktiflik Gelişimi (XP)', value: `\`${uVeri.xp} / ${gerekenXp} XP\` (Sonraki seviyeye \`${gerekenXp - uVeri.xp}\` kaldı.)`, inline: false }
             ).setTimestamp();
 
         return interaction.reply({ embeds: [profilEmbed] });
@@ -511,14 +524,9 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ embeds: [transferEmbed] });
     }
 
-    // --- CANLI & COOLDOWN'LU YAZI TURA (OwO TARZI) ---
+    // --- CANLI YAZI TURA ---
     if (commandName === 'yazıtura') {
         const userId = interaction.user.id;
-        const kalanSaniye = cooldownKontrol(userId);
-        if (kalanSaniye) {
-            return interaction.reply({ content: `⏳ Çok hızlısın! Oyun havasına girmek için **${kalanSaniye} saniye** beklemelisin.`, flags: [MessageFlags.Ephemeral] });
-        }
-
         const miktar = options.getInteger('miktar');
         const tahmin = options.getString('tahmin');
         const uVeri = profilGereksinim(userId);
@@ -526,7 +534,6 @@ client.on('interactionCreate', async (interaction) => {
         if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz bahis miktarı.', flags: [MessageFlags.Ephemeral] });
         if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiye!`, flags: [MessageFlags.Ephemeral] });
 
-        // İlk fırlatma mesajı
         const baslangicEmbed = new EmbedBuilder()
             .setTitle('🪙 YAZI TURA ATILIYOR... 🪙')
             .setColor('#FEE75C')
@@ -534,7 +541,7 @@ client.on('interactionCreate', async (interaction) => {
             .setTimestamp();
 
         await interaction.reply({ embeds: [baslangicEmbed] });
-        await sleep(1500); // Canlı dönme bekleme süresi
+        await sleep(1500); 
 
         const sonuclar = ['yazi', 'tura'];
         const rastgeleSonuc = sonuclar[Math.floor(Math.random() * sonuclar.length)];
@@ -559,21 +566,15 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.editReply({ embeds: [finalEmbed] });
     }
 
-    // --- CANLI & COOLDOWN'LU ZAR KAPIŞMASI (OwO TARZI) ---
+    // --- CANLI ZAR KAPIŞMASI ---
     if (commandName === 'zar') {
         const userId = interaction.user.id;
-        const kalanSaniye = cooldownKontrol(userId);
-        if (kalanSaniye) {
-            return interaction.reply({ content: `⏳ Çok hızlısın! Oyun havasına girmek için **${kalanSaniye} saniye** beklemelisin.`, flags: [MessageFlags.Ephemeral] });
-        }
-
         const miktar = options.getInteger('miktar');
         const uVeri = profilGereksinim(userId);
 
         if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz bahis miktarı.', flags: [MessageFlags.Ephemeral] });
         if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiye!`, flags: [MessageFlags.Ephemeral] });
 
-        // Sallama animasyonu mesajı
         const zarSallaniyorEmbed = new EmbedBuilder()
             .setTitle('🎲 ZARLAR ATILIYOR... 🎲')
             .setColor('#FEE75C')
@@ -608,21 +609,15 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.editReply({ embeds: [sonucEmbed] });
     }
 
-    // --- CANLI & COOLDOWN'LU SLOTS (OwO TARZI) ---
+    // --- CANLI SLOTS ---
     if (commandName === 'slots') {
         const userId = interaction.user.id;
-        const kalanSaniye = cooldownKontrol(userId);
-        if (kalanSaniye) {
-            return interaction.reply({ content: `⏳ Çok hızlısın! Oyun havasına girmek için **${kalanSaniye} saniye** beklemelisin.`, flags: [MessageFlags.Ephemeral] });
-        }
-
         const miktar = options.getInteger('miktar');
         const uVeri = profilGereksinim(userId);
 
         if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz bahis miktarı.', flags: [MessageFlags.Ephemeral] });
         if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiye!`, flags: [MessageFlags.Ephemeral] });
 
-        // İlk dönme efekti mesajı
         const donmeEmbed = new EmbedBuilder()
             .setTitle('🎰 SLOTS ÇEVRİLİYOR... 🎰')
             .setColor('#FEE75C')
@@ -648,7 +643,6 @@ client.on('interactionCreate', async (interaction) => {
         await sleep(800);
         const s3 = slotOgeleri[Math.floor(Math.random() * slotOgeleri.length)];
 
-        // Sonuç hesaplama
         const data = veriOku();
         const finalEmbed = new EmbedBuilder().setTimestamp();
 
