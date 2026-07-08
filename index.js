@@ -90,39 +90,39 @@ client.once('clientReady', async () => {
         },
         {
             name: 'profil',
-            description: '📊 404 bakiyenizi, seviyenizi ve aktiflik istatistiklerinizi gösterir',
+            description: '📊 Bakiyenizi, seviyenizi ve aktiflik istatistiklerinizi gösterir',
             options: [{ name: 'kullanici', description: 'Profiline bakılacak üye', type: ApplicationCommandOptionType.User, required: false }]
         },
         {
             name: 'bakiye',
-            description: '💰 Mevcut 404 bakiyenizi hızlıca sorgular',
+            description: '💰 Mevcut bakiyenizi hızlıca sorgular',
             options: [{ name: 'kullanici', description: 'Bakiyesine bakılacak üye', type: ApplicationCommandOptionType.User, required: false }]
         },
         {
             name: 'gönder',
-            description: '💸 Başka bir üyeye cüzdanınızdan 404 nakit transfer edersiniz',
+            description: '💸 Başka bir üyeye cüzdanınızdan nakit transfer edersiniz',
             options: [
                 { name: 'kullanici', description: 'Para gönderilecek üye', type: ApplicationCommandOptionType.User, required: true },
-                { name: 'miktar', description: 'Gönderilecek 404 miktarı', type: ApplicationCommandOptionType.Integer, required: true }
+                { name: 'miktar', description: 'Gönderilecek miktar', type: ApplicationCommandOptionType.Integer, required: true }
             ]
         },
         {
             name: 'günlük',
-            description: '🎁 Her 24 saatte bir şansınıza göre ücretsiz 404 Nakit hediye eder'
+            description: '🎁 Her 24 saatte bir şansınıza göre ücretsiz hediye nakit verir'
         },
         {
             name: '404cekilis',
-            description: '🪙 Belirtilen miktar kadar 404 Nakit ödüllü otomatik çekiliş başlatır (Yetkili)',
+            description: '🪙 Belirtilen miktar ödüllü otomatik teslimatlı nakit çekilişi başlatır (Yetkili)',
             options: [
                 { name: 'sure', description: 'Saniye cinsinden çekiliş süresi', type: ApplicationCommandOptionType.Integer, required: true },
-                { name: 'miktar', description: 'Dağıtılacak 404 nakit miktarı', type: ApplicationCommandOptionType.Integer, required: true }
+                { name: 'miktar', description: 'Dağıtılacak para miktarı', type: ApplicationCommandOptionType.Integer, required: true }
             ]
         },
         {
             name: 'yazıtura',
-            description: '🪙 Belirttiğiniz miktar 404 ile yazı tura oynarsınız',
+            description: '🪙 Belirttiğiniz miktar ile yazı tura oynarsınız',
             options: [
-                { name: 'miktar', description: 'Ortaya koyulacak 404 nakit miktarı', type: ApplicationCommandOptionType.Integer, required: true },
+                { name: 'miktar', description: 'Ortaya koyulacak miktar', type: ApplicationCommandOptionType.Integer, required: true },
                 { 
                     name: 'tahmin', 
                     description: 'Yazı mı Tura mı?', 
@@ -135,12 +135,12 @@ client.once('clientReady', async () => {
         {
             name: 'zar',
             description: '🎲 Bot ile zar kapıştırma oyunu oynarsınız',
-            options: [{ name: 'miktar', description: 'Ortaya koyulacak 404 nakit miktarı', type: ApplicationCommandOptionType.Integer, required: true }]
+            options: [{ name: 'miktar', description: 'Ortaya koyulacak miktar', type: ApplicationCommandOptionType.Integer, required: true }]
         },
         {
             name: 'slots',
             description: '🎰 Şansınızı şık slot makinesinde denersiniz',
-            options: [{ name: 'miktar', description: 'Ortaya koyulacak 404 nakit miktarı', type: ApplicationCommandOptionType.Integer, required: true }]
+            options: [{ name: 'miktar', description: 'Ortaya koyulacak miktar', type: ApplicationCommandOptionType.Integer, required: true }]
         },
         {
             name: 'tamyasakla',
@@ -282,8 +282,8 @@ client.on('interactionCreate', async (interaction) => {
                 .setDescription('Marpel ve Erensi altyapısıyla hazırlanan modern komut listemiz aşağıdadır:')
                 .setColor('#5865F2')
                 .addFields(
-                    { name: '🪙 OwO Ekonomi ve Mini Oyunlar (Herkes Kullanabilir)', value: `> \`/profil\` - Seviyenizi ve 404 paranızı listeler.\n> \`/bakiye\` - Cüzdan bakiyenizi söyler.\n> \`/gönder\` - Başka bir hesaba 404 nakit transfer eder.\n> \`/günlük\` - 24 saatlik hediye paranızı toplarsınız.\n> \`/yazıtura\` - 404 ortaya koyup yazı-tura oynarsınız.\n> \`/zar\` - Botla karşılıklı zar kapıştırırsınız.\n> \`/slots\` - Şanslı slot makinesini çevirirsiniz.` },
-                    { name: '🛡️ Yetkili Moderasyon Komutları', value: `> \`/404cekilis\` - Otomatik teslimatlı 404 çekilişi kurar.\n> \`/tamyasakla\` - Üyeyi sunucudan banlar.\n> \`/ipyasakla\` - Üyeyi IP adresiyle kalıcı engeller.\n> \`/sustur\` - Belirtilen dakika kadar timeout atar.\n> \`/susturarak\` - Üyenin susturmasını erken kaldırır.\n> \`/uyar\` - Üyeye uyarı puanı ekler.\n> \`/kick\` - Üyeyi sunucudan dışarı atar.` }
+                    { name: '🪙 OwO Ekonomi ve Mini Oyunlar (Herkes Kullanabilir)', value: `> \`/profil\` - Seviyenizi ve bakiyenizi listeler.\n> \`/bakiye\` - Cüzdan durumunu söyler.\n> \`/gönder\` - Başka bir hesaba nakit transfer eder.\n> \`/günlük\` - 24 saatlik hediye paranızı toplarsınız.\n> \`/yazıtura\` - Bahis ortaya koyup yazı-tura oynarsınız.\n> \`/zar\` - Botla karşılıklı zar kapıştırırsınız.\n> \`/slots\` - Şanslı slot makinesini çevirirsiniz.` },
+                    { name: '🛡️ Yetkili Moderasyon Komutları', value: `> \`/404cekilis\` - Otomatik teslimatlı Nakit çekilişi kurar.\n> \`/tamyasakla\` - Üyeyi sunucudan banlar.\n> \`/ipyasakla\` - Üyeyi IP adresiyle kalıcı engeller.\n> \`/sustur\` - Belirtilen dakika kadar timeout atar.\n> \`/susturarak\` - Üyenin susturmasını erken kaldırır.\n> \`/uyar\` - Üyeye uyarı puanı ekler.\n> \`/kick\` - Üyeyi sunucudan dışarı atar.` }
                 )
                 .setFooter({ text: '404 Family • Her Zaman En İyisi' }).setTimestamp();
             
@@ -341,7 +341,7 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: `⏳ Günlük ödülünü zaten aldın! Tekrar alabilmek için **${saat} saat ${dakika} dakika** beklemelisin.`, flags: [MessageFlags.Ephemeral] });
         }
 
-        const hediyePara = Math.floor(Math.random() * 201) + 50; // 50 - 250 arası rastgele 404
+        const hediyePara = Math.floor(Math.random() * 201) + 50; // 50 - 250 arası
         const data = veriOku();
         data[interaction.user.id].bakiye += hediyePara;
         data[interaction.user.id].gunlukZaman = Date.now();
@@ -349,20 +349,20 @@ client.on('interactionCreate', async (interaction) => {
 
         const dailyEmbed = new EmbedBuilder()
             .setTitle('🎁 Günlük Hediye Dağıtımı')
-            .setDescription(`🎉 Harika! Bugünlük şansına tam **+${hediyePara} 404 Nakit** cüzdanına eklendi!\n\nYeni Toplam Bakiyen: **${data[interaction.user.id].bakiye} 404**`)
+            .setDescription(`🎉 Harika! Bugünlük şansına tam **+${hediyePara} adet [404 Nakit]** cüzdanına eklendi!\n\nYeni Toplam Bakiyen: **${data[interaction.user.id].bakiye} adet [404 Nakit]**`)
             .setColor('#57F287')
             .setTimestamp();
 
         return interaction.reply({ embeds: [dailyEmbed] });
     }
 
-    // --- OTOMATİK TESLİMATLI 404 ÇEKİLİŞİ ---
+    // --- OTOMATİK TESLİMATLI ÇEKİLİŞ ---
     if (commandName === '404cekilis') {
         let kalanSure = options.getInteger('sure');
         const miktar = options.getInteger('miktar');
 
-        if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz 404 para miktarı.', flags: [MessageFlags.Ephemeral] });
-        await interaction.reply({ content: '🪙 Otomatik 404 Nakit çekilişi kuruluyor...', flags: [MessageFlags.Ephemeral] });
+        if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz miktar.', flags: [MessageFlags.Ephemeral] });
+        await interaction.reply({ content: '🪙 Otomatik nakit çekilişi kuruluyor...', flags: [MessageFlags.Ephemeral] });
 
         const cekilisId = interaction.id;
         cekilisKatilimcilari.set(cekilisId, []);
@@ -370,7 +370,7 @@ client.on('interactionCreate', async (interaction) => {
         const embed = new EmbedBuilder()
             .setTitle('🪙 404 Family - Büyük Para Çekilişi')
             .setDescription(`Sistem tarafından otomatik teslimatlı devasa bir nakit dağıtımı başladı!\n\n` +
-                            `> 💰 **Çekiliş Ödülü:** \`${miktar} 404 Nakit\`\n` +
+                            `> 💰 **Çekiliş Ödülü:** \`${miktar} adet [404 Nakit]\`\n` +
                             `> ⏳ **Kalan Süre:** \`${kalanSure} saniye\`\n` +
                             `> 👥 **Katılımcı Sayısı:** \`0\``)
             .setColor('#FEE75C')
@@ -381,7 +381,7 @@ client.on('interactionCreate', async (interaction) => {
             new ButtonBuilder().setCustomId(`liste_${cekilisId}`).setLabel('👥 Katılımcılar (0)').setStyle(ButtonStyle.Primary)
         );
 
-        const msg = await channel.send({ content: '🔔 @everyone **Büyük 404 Nakit Çekilişi Başladı!**', embeds: [embed], components: [butonlar], allowedMentions: { parse: ['everyone'] } });
+        const msg = await channel.send({ content: '🔔 @everyone **Büyük Nakit Çekilişi Başladı!**', embeds: [embed], components: [butonlar], allowedMentions: { parse: ['everyone'] } });
 
         const interval = setInterval(async () => {
             kalanSure -= 3;
@@ -391,7 +391,7 @@ client.on('interactionCreate', async (interaction) => {
                 const guncelEmbed = new EmbedBuilder()
                     .setTitle('🪙 404 Family - Büyük Para Çekilişi')
                     .setDescription(`Sistem tarafından otomatik teslimatlı devasa bir nakit dağıtımı başladı!\n\n` +
-                                    `> 💰 **Çekiliş Ödülü:** \`${miktar} 404 Nakit\`\n` +
+                                    `> 💰 **Çekiliş Ödülü:** \`${miktar} adet [404 Nakit]\`\n` +
                                     `> ⏳ **Kalan Süre:** \`${kalanSure} saniye\`\n` +
                                     `> 👥 **Katılımcı Sayısı:** \`${anlikListe.length}\``)
                     .setColor('#FEE75C').setTimestamp();
@@ -421,28 +421,26 @@ client.on('interactionCreate', async (interaction) => {
 
                 const kazananId = finalListe[Math.floor(Math.random() * finalListe.length)];
                 
-                // --- OTOMATİK PARAYI HESABA YÜKLEME ALGORİTMASI ---
-                profilGereksinim(kazananId); // Hesabı yoksa önce veri tabanında oluştur
+                profilGereksinim(kazananId);
                 const data = veriOku();
                 data[kazananId].bakiye += miktar;
                 veriYaz(data);
-                // --------------------------------------------------
 
                 const bitisEmbed = new EmbedBuilder()
-                    .setTitle('🎉 404 NAKİT ÇEKİLİŞİ SONUÇLANDI 🎉')
+                    .setTitle('🎉 ÇEKİLİŞ SONUÇLANDI 🎉')
                     .setDescription(`Büyük para dağıtımı sona erdi! Şanslı üyenin cüzdanı dolduruldu.\n\n` +
-                                    `> 💰 **Dağıtılan Ödül:** \`${miktar} 404 Nakit\`\n` +
-                                    `> 🍀 **Şanslı Talihli:** <@${kazananId}>\n\n🌟 *Ödül sistem tarafından kazanan üyenin cüzdanına otomatik olarak yüklenmiştir. \`/bakiye\` yazarak kontrol edebilir!*`)
+                                    `> 💰 **Dağıtılan Ödül:** \`${miktar} adet [404 Nakit]\`\n` +
+                                    `> 🍀 **Şanslı Talihli:** <@${kazananId}>\n\n🌟 *Ödül sistem tarafından otomatik yüklenmiştir. \`/bakiye\` yazarak kontrol edebilir!*`)
                     .setColor('#2ECC71').setThumbnail(guild.iconURL({ dynamic: true })).setTimestamp();
 
                 await msg.edit({ embeds: [bitisEmbed], components: [pasifButonlar] });
-                await channel.send({ content: `🎊 Tebrikler <@${kazananId}>! Çekilişi kazandın ve **${miktar} 404** nakit hesabına otomatik yüklendi!` });
+                await channel.send({ content: `🎊 Tebrikler <@${kazananId}>! Çekilişi kazandın ve **${miktar} adet [404 Nakit]** hesabına otomatik yüklendi!` });
                 cekilisKatilimcilari.delete(cekilisId);
             } catch (err) {}
         }, options.getInteger('sure') * 1000);
     }
 
-    // --- ESKİ SİSTEMLER VE PROFiL SORGULAMA ---
+    // --- PROFiL SORGULAMA ---
     if (commandName === 'profil') {
         const hedefUye = options.getUser('kullanici') || interaction.user;
         const uVeri = profilGereksinim(hedefUye.id);
@@ -453,9 +451,9 @@ client.on('interactionCreate', async (interaction) => {
             .setThumbnail(hedefUye.displayAvatarURL({ dynamic: true }))
             .setColor('#5865F2')
             .addFields(
-                { name: '🪙 404 Bakiye', value: `\`${uVeri.bakiye} 404\``, inline: true },
+                { name: '🪙 Hesap Bakiyesi', value: `\`${uVeri.bakiye} adet [404 Nakit]\``, inline: true },
                 { name: '✨ Seviye (Level)', value: `\`🌟 Level ${uVeri.seviye}\``, inline: true },
-                { name: '📊 Aktiflik Gelişimi (XP)', value: `\`${uVeri.xp} / ${gerekenXp} XP\` (Sonraki seviyeye \`${gerekenXp - uVeri.xp}\` kaldı.)`, inline: false }
+                { name: '📊 Aktiflik Gelişimi (XP)', value: `\`${uVeri.xp} / ${generenXp = uVeri.seviye * 100} XP\` (Sonraki seviyeye \`${gerekenXp - uVeri.xp}\` kaldı.)`, inline: false }
             ).setTimestamp();
 
         return interaction.reply({ embeds: [profilEmbed] });
@@ -467,7 +465,7 @@ client.on('interactionCreate', async (interaction) => {
 
         const bakiyeEmbed = new EmbedBuilder()
             .setTitle('💰 Cüzdan Durumu')
-            .setDescription(`${hedefUye.toString()} cüzdanında şu anda **${uVeri.bakiye}** \`404\` nakit para bulunduruyor.`)
+            .setDescription(`${hedefUye.toString()} cüzdanında şu anda **${uVeri.bakiye}** \`adet [404 Nakit]\` para bulunduruyor.`)
             .setColor('#FEE75C').setTimestamp();
 
         return interaction.reply({ embeds: [bakiyeEmbed] });
@@ -478,13 +476,13 @@ client.on('interactionCreate', async (interaction) => {
         const miktar = options.getInteger('miktar');
 
         if (alici.id === interaction.user.id) return interaction.reply({ content: '❌ Kendinize para gönderemezsiniz.', flags: [MessageFlags.Ephemeral] });
-        if (alici.bot) return interaction.reply({ content: '❌ Bot hesaplarına para transferi yapılamaz.', flags: [MessageFlags.Ephemeral] });
-        if (miktar <= 0) return interaction.reply({ content: '❌ Lütfen 0\'dan büyük geçerli bir miktar girin.', flags: [MessageFlags.Ephemeral] });
+        if (alici.bot) return interaction.reply({ content: '❌ Bot hesaplarına transfer yapılamaz.', flags: [MessageFlags.Ephemeral] });
+        if (miktar <= 0) return interaction.reply({ content: '❌ Lütfen geçerli bir miktar girin.', flags: [MessageFlags.Ephemeral] });
 
         const gonderenVeri = profilGereksinim(interaction.user.id);
         profilGereksinim(alici.id);
 
-        if (gonderenVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiye! Mevcut paranız: **${gonderenVeri.bakiye} 404**`, flags: [MessageFlags.Ephemeral] });
+        if (gonderenVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiye! Mevcut paranız: **${gonderenVeri.bakiye} adet [404 Nakit]**`, flags: [MessageFlags.Ephemeral] });
 
         const data = veriOku();
         data[interaction.user.id].bakiye -= miktar;
@@ -493,7 +491,7 @@ client.on('interactionCreate', async (interaction) => {
 
         const transferEmbed = new EmbedBuilder()
             .setTitle('💸 Başarılı Transfer')
-            .setDescription(`🎉 ${interaction.user.toString()} başarıyla ${alici.toString()} kullanıcısına **${miktar} 404** nakit gönderdi!`)
+            .setDescription(`🎉 ${interaction.user.toString()} başarıyla ${alici.toString()} kullanıcısına **${miktar} adet [404 Nakit]** gönderdi!`)
             .setColor('#57F287').setTimestamp();
 
         return interaction.reply({ embeds: [transferEmbed] });
@@ -505,7 +503,7 @@ client.on('interactionCreate', async (interaction) => {
         const uVeri = profilGereksinim(interaction.user.id);
 
         if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz bahis miktarı.', flags: [MessageFlags.Ephemeral] });
-        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz 404 bakiyesi!`, flags: [MessageFlags.Ephemeral] });
+        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiyesi!`, flags: [MessageFlags.Ephemeral] });
 
         const sonuclar = ['yazi', 'tura'];
         const rastgeleSonuc = sonuclar[Math.floor(Math.random() * sonuclar.length)];
@@ -514,11 +512,11 @@ client.on('interactionCreate', async (interaction) => {
         const data = veriOku();
         if (tahmin === rastgeleSonuc) {
             data[interaction.user.id].bakiye += miktar;
-            const embed = new EmbedBuilder().setTitle('🎉 Kazandın!').setDescription(`Para fırlatıldı ve ${durumMetni} geldi!\nHesabına **+${miktar} 404** nakit eklendi. Yeni bakiyen: **${data[interaction.user.id].bakiye} 404**`).setColor('#57F287');
+            const embed = new EmbedBuilder().setTitle('🎉 Kazandın!').setDescription(`Para fırlatıldı ve ${durumMetni} geldi!\nHesabına **+${miktar} adet [404 Nakit]** eklendi. Yeni bakiyen: **${data[interaction.user.id].bakiye}**`).setColor('#57F287');
             interaction.reply({ embeds: [embed] });
         } else {
             data[interaction.user.id].bakiye -= miktar;
-            const embed = new EmbedBuilder().setTitle('❌ Kaybettin...').setDescription(`Para fırlatıldı ve ${durumMetni} geldi!\nHesabından **-${miktar} 404** kesildi. Yeni bakiyen: **${data[interaction.user.id].bakiye} 404**`).setColor('#ED4245');
+            const embed = new EmbedBuilder().setTitle('❌ Kaybettin...').setDescription(`Para fırlatıldı ve ${durumMetni} geldi!\nHesabından **-${miktar} adet [404 Nakit]** kesildi. Yeni bakiyen: **${data[interaction.user.id].bakiye}**`).setColor('#ED4245');
             interaction.reply({ embeds: [embed] });
         }
         veriYaz(data);
@@ -529,7 +527,7 @@ client.on('interactionCreate', async (interaction) => {
         const uVeri = profilGereksinim(interaction.user.id);
 
         if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz bahis miktarı.', flags: [MessageFlags.Ephemeral] });
-        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz 404 bakiyesi!`, flags: [MessageFlags.Ephemeral] });
+        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiyesi!`, flags: [MessageFlags.Ephemeral] });
 
         const oyuncuZar = Math.floor(Math.random() * 6) + 1;
         const botZar = Math.floor(Math.random() * 6) + 1;
@@ -539,10 +537,10 @@ client.on('interactionCreate', async (interaction) => {
 
         if (oyuncuZar > botZar) {
             data[interaction.user.id].bakiye += miktar;
-            sonucEmbed.setTitle('🎉 Sen Kazandın!').setColor('#57F287').setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nHarika! **+${miktar} 404** nakit kazandın.`);
+            sonucEmbed.setTitle('🎉 Sen Kazandın!').setColor('#57F287').setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nHarika! **+${miktar} adet [404 Nakit]** kazandın.`);
         } else if (botZar > oyuncuZar) {
             data[interaction.user.id].bakiye -= miktar;
-            sonucEmbed.setTitle('❌ Bot Kazandı...').setColor('#ED4245').setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nŞansına küs, **-${miktar} 404** kaybettin.`);
+            sonucEmbed.setTitle('❌ Bot Kazandı...').setColor('#ED4245').setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nŞansına küs, **-${miktar} adet [404 Nakit]** kaybettin.`);
         } else {
             sonucEmbed.setTitle('🤝 Berabere!').setColor('#FEE75C').setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nZarlar eşit geldi, paran iade edildi!`);
         }
@@ -555,7 +553,7 @@ client.on('interactionCreate', async (interaction) => {
         const uVeri = profilGereksinim(interaction.user.id);
 
         if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz bahis miktarı.', flags: [MessageFlags.Ephemeral] });
-        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz 404 bakiyesi!`, flags: [MessageFlags.Ephemeral] });
+        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiyesi!`, flags: [MessageFlags.Ephemeral] });
 
         const slotOgeleri = ['🍒', '💎', '🍊', '🔔', '🍀'];
         const s1 = slotOgeleri[Math.floor(Math.random() * slotOgeleri.length)];
@@ -567,13 +565,13 @@ client.on('interactionCreate', async (interaction) => {
 
         if (s1 === s2 && s2 === s3) {
             const kazanc = miktar * 3; data[interaction.user.id].bakiye += kazanc;
-            slotEmbed.setTitle('🎰 MEGA WIN! SLOTS 🎰').setColor('#57F287').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nMüthiş! Üçlü kombinasyon tutturdun ve **+${kazanc} 404** kazandın!`);
+            slotEmbed.setTitle('🎰 MEGA WIN! SLOTS 🎰').setColor('#57F287').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nMüthiş! Üçlü kombinasyon tutturdun ve **+${kazanc} adet [404 Nakit]** kazandın!`);
         } else if (s1 === s2 || s2 === s3 || s1 === s3) {
             data[interaction.user.id].bakiye += miktar;
-            slotEmbed.setTitle('🎉 Küçük Kazanç! Slots').setColor('#3498DB').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nİkili yakaladın ve paranı katladın! **+${miktar} 404** eklendi.`);
+            slotEmbed.setTitle('🎉 Küçük Kazanç! Slots').setColor('#3498DB').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nİkili yakaladın ve paranı katladın! **+${miktar} adet [404 Nakit]** eklendi.`);
         } else {
             data[interaction.user.id].bakiye -= miktar;
-            slotEmbed.setTitle('❌ Kaybettin... Slots').setColor('#ED4245').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nHiçbir simge uyuşmadı. **-${miktar} 404** kaybettin.`);
+            slotEmbed.setTitle('❌ Kaybettin... Slots').setColor('#ED4245').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nHiçbir simge uyuşmadı. **-${miktar} adet [404 Nakit]** kaybettin.`);
         }
         veriYaz(data);
         return interaction.reply({ embeds: [slotEmbed] });
