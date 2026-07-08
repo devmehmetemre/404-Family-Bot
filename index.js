@@ -12,7 +12,7 @@ const {
     ButtonStyle
 } = require('discord.js');
 require('dotenv').config();
-const os = require('os'); // İstatistik komutu için gerekli sistem kütüphanesi
+const os = require('os');
 
 const client = new Client({
     intents: [
@@ -62,95 +62,100 @@ client.once('clientReady', async () => {
         status: 'online',
     });
 
+    // Discord Profilinde "Komutlar" sekmesinde görünecek profesyonel listeleme
     const commands = [
         {
+            name: 'yardım',
+            description: 'ℹ️ Botun tüm komutlarını ve kullanım rehberini gösterir'
+        },
+        {
             name: 'tamyasakla',
-            description: '🛡️ Kullanıcıyı sunucudan tamamen yasaklar (Ban)',
+            description: '🛡️ Belirtilen kullanıcıyı sunucudan tamamen yasaklar (Ban)',
             options: [
-                { name: 'kullanici', description: 'Yasaklanacak kullanıcı', type: ApplicationCommandOptionType.User, required: true },
-                { name: 'sebep', description: 'Yasaklama sebebi', type: ApplicationCommandOptionType.String, required: false }
+                { name: 'kullanici', description: 'Yasaklanacak üye', type: ApplicationCommandOptionType.User, required: true },
+                { name: 'sebep', description: 'Yasaklama gerekçesi', type: ApplicationCommandOptionType.String, required: false }
             ]
         },
         {
             name: 'ipyasakla',
-            description: '💥 Kullanıcıyı IP adresiyle birlikte yasaklar (Özel Yetki)',
+            description: '💥 Kullanıcıyı IP adresiyle birlikte sunucudan uzaklaştırır',
             options: [
-                { name: 'kullanici', description: 'IP yasaklaması atılacak kullanıcı', type: ApplicationCommandOptionType.User, required: true },
-                { name: 'sebep', description: 'Yasaklama sebebi', type: ApplicationCommandOptionType.String, required: false }
+                { name: 'kullanici', description: 'IP ban atılacak üye', type: ApplicationCommandOptionType.User, required: true },
+                { name: 'sebep', description: 'Uzaklaştırma gerekçesi', type: ApplicationCommandOptionType.String, required: false }
             ]
         },
         {
             name: 'sustur',
-            description: '🔇 Kullanıcıyı süreli olarak susturur (Timeout)',
+            description: '🔇 Kullanıcıyı belirtilen süre kadar susturur (Timeout)',
             options: [
-                { name: 'kullanici', description: 'Susturulacak kullanıcı', type: ApplicationCommandOptionType.User, required: true },
+                { name: 'kullanici', description: 'Susturulacak üye', type: ApplicationCommandOptionType.User, required: true },
                 { name: 'sure', description: 'Dakika cinsinden süre', type: ApplicationCommandOptionType.Integer, required: true }
             ]
         },
         {
             name: 'susturarak',
-            description: '🔊 Kullanıcının susturmasını (Timeout) kaldırır',
+            description: '🔊 Cezalı bir kullanıcının susturma süresini erkenden kaldırır',
             options: [
-                { name: 'kullanici', description: 'Susturması kaldırılacak kullanıcı', type: ApplicationCommandOptionType.User, required: true }
+                { name: 'kullanici', description: 'Susturması açılacak üye', type: ApplicationCommandOptionType.User, required: true }
             ]
         },
         {
             name: 'kilit',
-            description: '🔒 Bulunduğunuz kanalı kilitler veya açar',
+            description: '🔒 Bulunduğunuz metin kanalını yazıya kapatır veya açar',
             options: [
                 {
                     name: 'durum',
-                    description: 'Kilitle veya Aç',
+                    description: 'Kanalın kilit durumunu seçin',
                     type: ApplicationCommandOptionType.String,
                     required: true,
                     choices: [
-                        { name: 'Kilitle 🔒', value: 'kilitle' },
-                        { name: 'Aç 🔓', value: 'ac' }
+                        { name: 'Kanalı Kilitle 🔒', value: 'kilitle' },
+                        { name: 'Kanalı Aç 🔓', value: 'ac' }
                     ]
                 }
             ]
         },
         {
             name: 'cekilis',
-            description: '🎁 Butonlu ve canlı katılımicılı modern çekiliş başlatır',
+            description: '🎁 Gelişmiş, butonlu ve interaktif çekiliş sistemi başlatır',
             options: [
-                { name: 'sure', description: 'Saniye cinsinden süre', type: ApplicationCommandOptionType.Integer, required: true },
-                { name: 'odul', description: 'Çekiliş ödülü', type: ApplicationCommandOptionType.String, required: true }
+                { name: 'sure', description: 'Saniye cinsinden çekiliş süresi', type: ApplicationCommandOptionType.Integer, required: true },
+                { name: 'odul', description: 'Verilecek çekiliş ödülü', type: ApplicationCommandOptionType.String, required: true }
             ]
         },
         {
             name: 'duyuru',
-            description: '📢 Sunucuda şık bir duyuru paneli yayınlar (@everyone & DM)',
+            description: '📢 Tüm sunucuya @everyone etiketiyle şık duyuru paneli gönderir',
             options: [
-                { name: 'mesaj', description: 'Duyurulacak metin', type: ApplicationCommandOptionType.String, required: true }
+                { name: 'mesaj', description: 'Duyurulacak metin içeriği', type: ApplicationCommandOptionType.String, required: true }
             ]
         },
         {
             name: 'uyar',
-            description: '⚠️ Kullanıcıyı uyarır ve DM gönderir',
+            description: '⚠️ Kuralları ihlal eden üyeyi uyarır ve DM ile bilgilendirir',
             options: [
-                { name: 'kullanici', description: 'Uyarılacak kullanıcı', type: ApplicationCommandOptionType.User, required: true },
-                { name: 'sebep', description: 'Uyarı sebebi', type: ApplicationCommandOptionType.String, required: false }
+                { name: 'kullanici', description: 'Uyarılacak üye', type: ApplicationCommandOptionType.User, required: true },
+                { name: 'sebep', description: 'Uyarı gerekçesi', type: ApplicationCommandOptionType.String, required: false }
             ]
         },
         {
             name: 'unban',
-            description: '🔓 Kullanıcının yasağını (Normal veya IP) kaldırır',
+            description: '🔓 Yasaklanmış bir üyenin engelini ID kullanarak kaldırır',
             options: [
-                { name: 'id', description: 'Yasağı kaldırılacak kullanıcı ID\'si', type: ApplicationCommandOptionType.String, required: true }
+                { name: 'id', description: 'Yasağı kaldırılacak üyenin Discord ID\'si', type: ApplicationCommandOptionType.String, required: true }
             ]
         },
         {
             name: 'kick',
-            description: '👢 Kullanıcıyı sunucudan atar',
+            description: '👢 Belirtilen üyeyi sunucudan tek seferlik atar',
             options: [
-                { name: 'kullanici', description: 'Sunucudan atılacak kullanıcı', type: ApplicationCommandOptionType.User, required: true },
-                { name: 'sebep', description: 'Atılma sebebi', type: ApplicationCommandOptionType.String, required: false }
+                { name: 'kullanici', description: 'Sunucudan atılacak üye', type: ApplicationCommandOptionType.User, required: true },
+                { name: 'sebep', description: 'Atılma gerekçesi', type: ApplicationCommandOptionType.String, required: false }
             ]
         },
         {
             name: 'istatistik',
-            description: '⚙️ Botun performans ve sistem bilgilerini gösterir'
+            description: '⚙️ Botun ping, uptime ve donanım verilerini gösterir'
         }
     ];
 
@@ -176,6 +181,23 @@ client.on('interactionCreate', async (interaction) => {
     // --- BUTON ETKİNLİKLERİ ---
     if (interaction.isButton()) {
         const [action, msgId] = interaction.customId.split('_');
+        
+        // Yardım komutu için özel buton yönlendirmesi (Gizli mesaj olarak açılır)
+        if (action === 'helpmenu') {
+            const yardimEmbed = new EmbedBuilder()
+                .setTitle('📚 404 Family Bot - Gelişmiş Komut Rehberi')
+                .setDescription('Marpel ve Erensi altyapısıyla hazırlanan modern komut listemiz aşağıdadır:')
+                .setColor('#5865F2')
+                .addFields(
+                    { name: '🛡️ Yetkili Moderasyon Komutları', value: `> \`/tamyasakla\` - Üyeyi sunucudan banlar.\n> \`/ipyasakla\` - Üyeyi IP adresiyle kalıcı engeller.\n> \`/sustur\` - Belirtilen dakika kadar timeout atar.\n> \`/susturarak\` - Üyenin susturmasını erken kaldırır.\n> \`/uyar\` - Üyeye uyarı puanı ekler ve DM atar.\n> \`/kick\` - Üyeyi sunucudan dışarı atar.\n> \`/unban\` - ID ile yasak kaldırır.` },
+                    { name: '⚙️ Yönetim & Sistem Komutları', value: `> \`/kilit\` - Kanalı kilitleyip açmaya yarar.\n> \`/duyuru\` - Etiketli ve DM destekli duyuru geçer.\n> \`/cekilis\` - Yeni nesil butonlu çekiliş başlatır.\n> \`/istatistik\` - Botun canlı donanım durumunu raporlar.` }
+                )
+                .setFooter({ text: '404 Family • Her Zaman En İyisi', iconURL: interaction.guild.iconURL() })
+                .setTimestamp();
+            
+            return interaction.reply({ embeds: [yardimEmbed], flags: [MessageFlags.Ephemeral] });
+        }
+
         if (!cekilisKatilimcilari.has(msgId)) {
             return interaction.reply({ content: '❌ Bu çekiliş aktif değil veya süresi dolmuş.', flags: [MessageFlags.Ephemeral] });
         }
@@ -209,15 +231,32 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
     const { commandName, options, channel, guild, user: yetkili } = interaction;
 
-    // Yetki Kontrol Süzgeci
+    // Yetki Filtreleri (Yardım ve İstatistik komutları için yetki gerekmez)
     if (commandName === 'ipyasakla') {
         if (!ipBanYetkiKontrol(interaction)) return interaction.reply({ content: '❌ Bu özel koruma komutunu sadece tanımlı IP-Ban yetkilileri kullanabilir.', flags: [MessageFlags.Ephemeral] });
-    } else if (commandName !== 'istatistik') {
+    } else if (commandName !== 'istatistik' && commandName !== 'yardım') {
         if (!yetkiKontrol(interaction)) return interaction.reply({ content: '❌ Bu moderasyon komutunu kullanmak için yetkiniz yetersiz.', flags: [MessageFlags.Ephemeral] });
     }
 
-    // --- MODERN COMPONENTLER ---
-    
+    // --- YENİ EKLENEN MODERN YARDIM KOMUTU ---
+    if (commandName === 'yardım') {
+        const embed = new EmbedBuilder()
+            .setTitle(`⚡ ${client.user.username} - Yardım Merkezi`)
+            .setDescription(`Merhaba **${interaction.user.username}**, sunucunun yönetim kalitesini artırmak için buradayım! Aşağıdaki interaktif butonu kullanarak tüm özelliklerime göz atabilirsin.\n\n` +
+                            `> 🛠️ **Profil Entegrasyonu:** Ayrıca ismimin üstüne tıklayıp \`Komutlar\` sekmesinden de hızlıca bana talimat verebilirsin!`)
+            .setColor('#5865F2')
+            .setThumbnail(client.user.avatarURL())
+            .setFooter({ text: '404 Family Destek Sistemi', iconURL: guild.iconURL() })
+            .setTimestamp();
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('helpmenu_view').setLabel('📚 Komut Listesini Aç').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setLabel('Sunucuya Ekle').setStyle(ButtonStyle.Link).setURL(`https://discord.com/api/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot%20applications.commands`)
+        );
+
+        return interaction.reply({ embeds: [embed], components: [row] });
+    }
+
     if (commandName === 'istatistik') {
         const uptime = process.uptime();
         const d = Math.floor(uptime / (3600*24));
@@ -373,7 +412,6 @@ client.on('interactionCreate', async (interaction) => {
 
         const msg = await channel.send({ content: '🔔 @everyone **Yeni bir çekiliş başladı!**', embeds: [embed], components: [butonlar], allowedMentions: { parse: ['everyone'] } });
 
-        // TOPLU DM LOOP
         const uyelerCekilis = await guild.members.fetch();
         (async () => {
             for (const [id, uye] of uyelerCekilis) {
@@ -517,7 +555,6 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
-// Otomatik Rol / Ceza Log Tetikleyicileri (Erensi Tarzı Otomatik DM Modülleri)
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
     const oldRoles = oldMember.roles.cache;
     const newRoles = newMember.roles.cache;
