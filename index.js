@@ -13,6 +13,7 @@ const {
 } = require('discord.js');
 require('dotenv').config();
 const os = require('os');
+const fs = require('fs'); // Ekonomi verilerini kaydetmek için gerekli
 
 const client = new Client({
     intents: [
@@ -27,9 +28,38 @@ const client = new Client({
 // --- AYARLAR ---
 const YETKILI_ROLLER = ['1519479137360674868', '1504510912919371816']; 
 const IP_BAN_YETKILI_ROL = '1519479137360674868'; 
+const IP_BAN_LOG_KANAL_ID = '1524324280844685493'; 
 // ----------------
 
 const cekilisKatilimcilari = new Map();
+const dbDosyasi = './ekonomi.json';
+
+// Veritabanı Dosyası Yoksa Oluştur ve Yükle
+if (!fs.existsSync(dbDosyasi)) {
+    fs.writeFileSync(dbDosyasi, JSON.stringify({}, null, 4));
+}
+
+function veriOku() {
+    return JSON.parse(fs.readFileSync(dbDosyasi, 'utf8'));
+}
+
+function veriYaz(data) {
+    fs.writeFileSync(dbDosyasi, JSON.stringify(data, null, 4));
+}
+
+// Kullanıcı Profili Yoksa Varsayılan Verilerle Oluşturma Fonksiyonu
+function profilGereksinim(userId) {
+    const data = veriOku();
+    if (!data[userId]) {
+        data[userId] = {
+            bakiye: 0,
+            xp: 0,
+            seviye: 1
+        };
+        veriYaz(data);
+    }
+    return data[userId];
+}
 
 function yetkiKontrol(interaction) {
     return interaction.member.roles.cache.some(role => YETKILI_ROLLER.includes(role.id)) || interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
@@ -62,11 +92,28 @@ client.once('clientReady', async () => {
         status: 'online',
     });
 
-    // Discord Profilinde "Komutlar" sekmesinde görünecek profesyonel listeleme
     const commands = [
         {
             name: 'yardım',
             description: 'ℹ️ Botun tüm komutlarını ve kullanım rehberini gösterir'
+        },
+        {
+            name: 'profil',
+            description: '📊 404 bakiyenizi, seviyenizi ve aktiflik istatistiklerinizi gösterir',
+            options: [{ name: 'kullanici', description: 'Profiline bakılacak üye', type: ApplicationCommandOptionType.User, required: false }]
+        },
+        {
+            name: 'bakiye',
+            description: '💰 Mevcut 404 bakiyenizi hızlıca sorgular',
+            options: [{ name: 'kullanici', description: 'Bakiyesine bakılacak üye', type: ApplicationCommandOptionType.User, required: false }]
+        },
+        {
+            name: 'gönder',
+            description: '💸 Başka bir üyeye cüzdanınızdan 404 nakit transfer edersiniz',
+            options: [
+                { name: 'kullanici', description: 'Para gönderilecek üye', type: ApplicationCommandOptionType.User, required: true },
+                { name: 'miktar', description: 'Gönderilecek 404 miktarı', type: ApplicationCommandOptionType.Integer, required: true }
+            ]
         },
         {
             name: 'tamyasakla',
@@ -162,9 +209,43 @@ client.once('clientReady', async () => {
     await client.application.commands.set(commands);
 });
 
+// --- MESAJ ATTIKÇA XP & 404 BAKİYE KAZANMA SİSTEMİ (OwO Tarzı) ---
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
+    // Ekonomi Verilerini Güncelleme
+    const userId = message.author.id;
+    const data = veriOku();
+    
+    if (!data[userId]) {
+        data[userId] = { bakiye: 0, xp: 0, seviye: 1 };
+    }
+
+    // Rastgele 1 ila 5 arası 404 Bakiyesi, 5 ila 15 arası XP ekle
+    const kazanilanBakiye = Math.floor(Math.random() * 5) + 1;
+    const kazanilanXp = Math.floor(Math.random() * 11) + 5;
+
+    data[userId].bakiye += kazanilanBakiye;
+    data[userId].xp += kazanilanXp;
+
+    // Seviye Atlama Algoritması (Her seviye için gereken XP: Seviye * 100)
+    const gerekenXp = data[userId].seviye * 100;
+    if (data[userId].xp >= gerekenXp) {
+        data[userId].xp -= gerekenXp;
+        data[userId].seviye += 1;
+        
+        // Şık Seviye Atlama Mesajı
+        const lvlEmbed = new EmbedBuilder()
+            .setTitle('🎉 Seviye Atladın!')
+            .setDescription(`Tebrikler ${message.author.toString()}, sunucuda mesaj göndererek **Level ${data[userId].seviye}** oldun! 🚀`)
+            .setColor('#57F287');
+        
+        message.channel.send({ embeds: [lvlEmbed] }).then(m => setTimeout(() => m.delete().catch(() => null), 5000));
+    }
+
+    veriYaz(data);
+
+    // Eski 'sa' Tepki Sistemi
     if (message.content.toLowerCase() === 'sa') {
         const cevaplar = [
             `Aleyküm Selam hoca, hoş geldin! Gözümüz yollarda kalmıştı. 😎`,
@@ -182,14 +263,14 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isButton()) {
         const [action, msgId] = interaction.customId.split('_');
         
-        // Yardım komutu için özel buton yönlendirmesi (Gizli mesaj olarak açılır)
         if (action === 'helpmenu') {
             const yardimEmbed = new EmbedBuilder()
                 .setTitle('📚 404 Family Bot - Gelişmiş Komut Rehberi')
                 .setDescription('Marpel ve Erensi altyapısıyla hazırlanan modern komut listemiz aşağıdadır:')
                 .setColor('#5865F2')
                 .addFields(
-                    { name: '🛡️ Yetkili Moderasyon Komutları', value: `> \`/tamyasakla\` - Üyeyi sunucudan banlar.\n> \`/ipyasakla\` - Üyeyi IP adresiyle kalıcı engeller.\n> \`/sustur\` - Belirtilen dakika kadar timeout atar.\n> \`/susturarak\` - Üyenin susturmasını erken kaldırır.\n> \`/uyar\` - Üyeye uyarı puanı ekler ve DM atar.\n> \`/kick\` - Üyeyi sunucudan dışarı atar.\n> \`/unban\` - ID ile yasak kaldırır.` },
+                    { name: '🪙 OwO Tipi Ekonomi & Aktiflik', value: `> \`/profil\` - Seviyenizi, XP'nizi ve 404 paranızı listeler.\n> \`/bakiye\` - Cüzdanınızdaki güncel bakiyeyi söyler.\n> \`/gönder\` - Başka bir hesaba 404 nakit parası transfer eder.` },
+                    { name: '🛡️ Yetkili Moderasyon Komutları', value: `> \`/tamyasakla\` - Üyeyi sunucudan banlar.\n> \`/ipyasakla\` - Üyeyi IP adresiyle kalıcı engeller.\n> \`/sustur\` - Belirtilen dakika kadar timeout atar.\n> \`/susturarak\` - Üyenin susturmasını erken kaldırır.\n> \`/uyar\` - Üyeye uyarı puanı ekler.\n> \`/kick\` - Üyeyi sunucudan dışarı atar.\n> \`/unban\` - ID ile yasak kaldırır.` },
                     { name: '⚙️ Yönetim & Sistem Komutları', value: `> \`/kilit\` - Kanalı kilitleyip açmaya yarar.\n> \`/duyuru\` - Etiketli ve DM destekli duyuru geçer.\n> \`/cekilis\` - Yeni nesil butonlu çekiliş başlatır.\n> \`/istatistik\` - Botun canlı donanım durumunu raporlar.` }
                 )
                 .setFooter({ text: '404 Family • Her Zaman En İyisi', iconURL: interaction.guild.iconURL() })
@@ -231,14 +312,81 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
     const { commandName, options, channel, guild, user: yetkili } = interaction;
 
-    // Yetki Filtreleri (Yardım ve İstatistik komutları için yetki gerekmez)
+    // Yetki İstisnaları (Ekonomi, Yardım ve İstatistik komutları için yetki gerekmez)
+    const muafKomutlar = ['istatistik', 'yardım', 'profil', 'bakiye', 'gönder'];
+
     if (commandName === 'ipyasakla') {
         if (!ipBanYetkiKontrol(interaction)) return interaction.reply({ content: '❌ Bu özel koruma komutunu sadece tanımlı IP-Ban yetkilileri kullanabilir.', flags: [MessageFlags.Ephemeral] });
-    } else if (commandName !== 'istatistik' && commandName !== 'yardım') {
+    } else if (!muafKomutlar.includes(commandName)) {
         if (!yetkiKontrol(interaction)) return interaction.reply({ content: '❌ Bu moderasyon komutunu kullanmak için yetkiniz yetersiz.', flags: [MessageFlags.Ephemeral] });
     }
 
-    // --- YENİ EKLENEN MODERN YARDIM KOMUTU ---
+    // --- EKONOMİ KOMUTLARI ---
+
+    if (commandName === 'profil') {
+        const hedefUye = options.getUser('kullanici') || interaction.user;
+        const uVeri = profilGereksinim(hedefUye.id);
+        const gerekenXp = uVeri.seviye * 100;
+
+        const profilEmbed = new EmbedBuilder()
+            .setTitle(`📊 ${hedefUye.username} - Oyuncu Profili`)
+            .setThumbnail(hedefUye.displayAvatarURL({ dynamic: true }))
+            .setColor('#5865F2')
+            .addFields(
+                { name: '🪙 404 Bakiye', value: `\`${uVeri.bakiye} 404\``, inline: true },
+                { name: '✨ Seviye (Level)', value: `\`🌟 Level ${uVeri.seviye}\``, inline: true },
+                { name: '📊 Aktiflik Gelişimi (XP)', value: `\`${uVeri.xp} / ${gerekenXp} XP\` (Sonraki seviyeye \`${gerekenXp - uVeri.xp}\` kaldı.)`, inline: false }
+            )
+            .setFooter({ text: 'Mesaj göndererek daha fazla 404 ve XP kazanabilirsin!', iconURL: guild.iconURL() })
+            .setTimestamp();
+
+        return interaction.reply({ embeds: [profilEmbed] });
+    }
+
+    if (commandName === 'bakiye') {
+        const hedefUye = options.getUser('kullanici') || interaction.user;
+        const uVeri = profilGereksinim(hedefUye.id);
+
+        const bakiyeEmbed = new EmbedBuilder()
+            .setTitle('💰 Cüzdan Durumu')
+            .setDescription(`${hedefUye.toString()} cüzdanında şu anda **${uVeri.bakiye}** \`404\` nakit para bulunduruyor.`)
+            .setColor('#FEE75C')
+            .setTimestamp();
+
+        return interaction.reply({ embeds: [bakiyeEmbed] });
+    }
+
+    if (commandName === 'gönder') {
+        const alici = options.getUser('kullanici');
+        const miktar = options.getInteger('miktar');
+
+        if (alici.id === interaction.user.id) return interaction.reply({ content: '❌ Kendinize para gönderemezsiniz.', flags: [MessageFlags.Ephemeral] });
+        if (alici.bot) return interaction.reply({ content: '❌ Bot hesaplarına para transferi yapılamaz.', flags: [MessageFlags.Ephemeral] });
+        if (miktar <= 0) return interaction.reply({ content: '❌ Lütfen 0\'dan büyük geçerli bir miktar girin.', flags: [MessageFlags.Ephemeral] });
+
+        const gonderenVeri = profilGereksinim(interaction.user.id);
+        profilGereksinim(alici.id); // Alıcının hesabı yoksa aç
+
+        if (gonderenVeri.bakiye < miktar) {
+            return interaction.reply({ content: `❌ Yetersiz bakiye! Mevcut paranız: **${gonderenVeri.bakiye} 404**`, flags: [MessageFlags.Ephemeral] });
+        }
+
+        // Parayı aktar ve veritabanını kaydet
+        const data = veriOku();
+        data[interaction.user.id].bakiye -= miktar;
+        data[alici.id].bakiye += miktar;
+        veriYaz(data);
+
+        const transferEmbed = new EmbedBuilder()
+            .setTitle('💸 Başarılı Transfer')
+            .setDescription(`🎉 ${interaction.user.toString()} başarıyla ${alici.toString()} kullanıcısına **${miktar} 404** nakit gönderdi!`)
+            .setColor('#57F287')
+            .setTimestamp();
+
+        return interaction.reply({ embeds: [transferEmbed] });
+    }
+
+    // --- ESKİ SİSTEM VE YARDIM MODÜLLERİ ---
     if (commandName === 'yardım') {
         const embed = new EmbedBuilder()
             .setTitle(`⚡ ${client.user.username} - Yardım Merkezi`)
@@ -317,6 +465,26 @@ client.on('interactionCreate', async (interaction) => {
 
         await guvenliDM(user, { embeds: [dmEmbed] });
         await guild.bans.create(user.id, { deleteMessageSeconds: 604800, reason: `IP BAN | Yetkili: ${yetkili.tag} | Sebep: ${sebep}` });
+
+        const gizliLogKanali = guild.channels.cache.get(IP_BAN_LOG_KANAL_ID);
+        if (gizliLogKanali) {
+            const gizliArsivEmbed = new EmbedBuilder()
+                .setTitle('🗄️ Güvenlik Arşivi: IP Ban Kaydı')
+                .setDescription(`Sunucuda bir üyeye ait IP adresi Discord sistemi tarafından kara listeye alındı.`)
+                .addFields(
+                    { name: '👤 Yasaklanan Kullanıcı', value: `${user.user.tag} (${user.toString()})`, inline: true },
+                    { name: '🆔 Kullanıcı ID', value: `\`${user.id}\``, inline: true },
+                    { name: '🛡️ Cezayı Veren Yetkili', value: `${yetkili.toString()} (\`${yetkili.tag}\`)`, inline: false },
+                    { name: '📝 Yasaklanma Nedeni', value: `\`${sebep}\``, inline: false },
+                    { name: '🔒 IP Durumu', value: `\`Discord Tarafından Donanımsal Olarak Engellendi\``, inline: false }
+                )
+                .setColor('#7a0000')
+                .setThumbnail(user.user.displayAvatarURL({ dynamic: true }))
+                .setFooter({ text: '404 Family Güvenlik Veritabanı' })
+                .setTimestamp();
+
+            await gizliLogKanali.send({ embeds: [gizliArsivEmbed] });
+        }
 
         const logEmbed = new EmbedBuilder()
             .setTitle('💥 IP Yasaklaması Atıldı')
@@ -503,7 +671,7 @@ client.on('interactionCreate', async (interaction) => {
 
         const dmEmbed = new EmbedBuilder()
             .setTitle('⚠️ Resmi Uyarı Bildirimi')
-            .setDescription(`**${guild.name}** sunucusu kurallarına uymadığınız için resmi uyarı aldınız. Tekrarı halinde uzaklaştırma alabilirsiniz.`)
+            .setDescription(`**${guild.name}** sunucu kurallarına uymadığınız için resmi uyarı aldınız.`)
             .addFields({ name: '📝 Gerekçe', value: sebep })
             .setColor('#FEE75C').setTimestamp();
 
@@ -555,6 +723,7 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
+// Otomatik Rol Değişikliği Bildirimleri
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
     const oldRoles = oldMember.roles.cache;
     const newRoles = newMember.roles.cache;
@@ -564,7 +733,7 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
     if (eklenenRoller.size > 0) {
         const rolIsimleri = eklenenRoller.map(r => r.name).join(', ');
         const dmEmbed = new EmbedBuilder()
-            .setTitle('➕ Rol Değişikliği: Rol Tanımlandı')
+            .setTitle('➕ Rol Tanımlandı')
             .setDescription(`**${newMember.guild.name}** sunucusunda üzerinize yeni rol atandı.`)
             .addFields({ name: '✨ Alınan Rol(ler)', value: `\`${rolIsimleri}\`` })
             .setColor('#57F287').setTimestamp();
@@ -574,7 +743,7 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
     if (silinenRoller.size > 0) {
         const rolIsimleri = silinenRoller.map(r => r.name).join(', ');
         const dmEmbed = new EmbedBuilder()
-            .setTitle('➖ Rol Değişikliği: Rol Alındı')
+            .setTitle('➖ Rol Kaldırıldı')
             .setDescription(`**${newMember.guild.name}** sunucusunda üzerinizdeki rol kaldırıldı.`)
             .addFields({ name: '🗑️ Alınan Rol(ler)', value: `\`${rolIsimleri}\`` })
             .setColor('#ED4245').setTimestamp();
