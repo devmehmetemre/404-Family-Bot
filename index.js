@@ -215,6 +215,13 @@ client.once('ready', async () => {
                 { name: 'sebep', description: 'Atılma gerekçesi', type: ApplicationCommandOptionType.String, required: false }
             ]
         },
+        {
+            name: 'temizle',
+            description: '🧹 Belirtilen miktarda son atılan mesajı kanaldan toplu olarak siler',
+            options: [
+                { name: 'sayi', description: 'Silinecek mesaj miktarı (1 - 100 arası)', type: ApplicationCommandOptionType.Integer, required: true }
+            ]
+        },
         { name: 'istatistik', description: '⚙️ Botun ping, uptime ve donanım verilerini gösterir' }
     ];
 
@@ -242,7 +249,6 @@ client.on('messageCreate', async (message) => {
         data[userId].xp -= gerekenXp;
         data[userId].seviye += 1;
         
-        // KATLANARAK ARTAN SEVİYE ÖDÜLÜ FORMÜLÜ (Yeni Seviye * 100)
         const seviyeOdulu = data[userId].seviye * 100;
         data[userId].bakiye += seviyeOdulu;
 
@@ -279,7 +285,7 @@ client.on('interactionCreate', async (interaction) => {
                 .setColor('#5865F2')
                 .addFields(
                     { name: '🪙 OwO Ekonomi ve Mini Oyunlar (Herkes Kullanabilir)', value: `> \`/profil\` - Seviyenizi ve bakiyenizi listeler.\n> \`/bakiye\` - Cüzdan durumunu söyler.\n> \`/gönder\` - Başka bir hesaba nakit transfer eder.\n> \`/günlük\` - 24 saatlik hediye paranızı toplarsınız.\n> \`/yazıtura\` - Bahis ortaya koyup yazı-tura oynarsınız.\n> \`/zar\` - Botla karşılıklı zar kapıştırırsınız.\n> \`/slots\` - Şanslı slot makinesini çevirirsiniz.` },
-                    { name: '🛡️ Yetkili Moderasyon Komutları', value: `> \`/404cekilis\` - Otomatik teslimatlı Nakit çekilişi kurar.\n> \`/tamyasakla\` - Üyeyi sunucudan banlar.\n> \`/ipyasakla\` - Üyeyi IP adresiyle kalıcı engeller.\n> \`/sustur\` - Belirtilen dakika kadar timeout atar.\n> \`/susturarak\` - Üyenin susturmasını erken kaldırır.\n> \`/uyar\` - Üyeye uyarı puanı ekler.\n> \`/kick\` - Üyeyi sunucudan dışarı atar.` }
+                    { name: '🛡️ Yetkili Moderasyon Komutları', value: `> \`/404cekilis\` - Otomatik teslimatlı Nakit çekilişi kurar.\n> \`/temizle\` - Kanaldaki mesajları toplu temizler.\n> \`/tamyasakla\` - Üyeyi sunucudan banlar.\n> \`/ipyasakla\` - Üyeyi IP adresiyle kalıcı engeller.\n> \`/sustur\` - Belirtilen dakika kadar timeout atar.\n> \`/susturarak\` - Üyenin susturmasını erken kaldırır.\n> \`/uyar\` - Üyeye uyarı puanı ekler.\n> \`/kick\` - Üyeyi sunucudan dışarı atar.` }
                 )
                 .setFooter({ text: '404 Family • Her Zaman En İyisi' }).setTimestamp();
             
@@ -316,7 +322,7 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
     const { commandName, options, channel, guild, user: yetkili } = interaction;
 
-    // --- MINI GAME COOLDOWN KONTROLÜ (GİRİŞ KILİDİ) ---
+    // --- MINI GAME COOLDOWN KONTROLÜ ---
     const miniOyunlar = ['slots', 'yazıtura', 'zar'];
     if (miniOyunlar.includes(commandName)) {
         const kalanSaniye = cooldownKontrol(interaction.user.id);
@@ -335,6 +341,36 @@ client.on('interactionCreate', async (interaction) => {
         if (!ipBanYetkiKontrol(interaction)) return interaction.reply({ content: '❌ Bu özel koruma komutunu sadece tanımlı IP-Ban yetkilileri kullanabilir.', flags: [MessageFlags.Ephemeral] });
     } else if (!herkesKullanabilir.includes(commandName)) {
         if (!yetkiKontrol(interaction)) return interaction.reply({ content: '❌ Bu komutu kullanmak için yetkiniz yetersiz.', flags: [MessageFlags.Ephemeral] });
+    }
+
+    // --- TEMİZLE KOMUTU (ERENSİ TARZI) ---
+    if (commandName === 'temizle') {
+        const silinecekMiktar = options.getInteger('sayi');
+
+        if (silinecekMiktar < 1 || silinecekMiktar > 100) {
+            return interaction.reply({ content: '❌ Tek seferde en az **1**, en fazla **100** mesaj silebilirsiniz.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        // Kanaldaki mesajları toplu sil
+        await channel.bulkDelete(silinecekMiktar, true).then(async (mesajlar) => {
+            const temizleEmbed = new EmbedBuilder()
+                .setTitle('🧹 Kanal Temizlendi')
+                .setDescription(`🚀 Başarıyla kanaldan son atılan **${mesajlar.size}** mesaj silindi ve temizlendi!\n\n*Yönetici: ${interaction.user.toString()}*`)
+                .setColor('#3498DB')
+                .setFooter({ text: 'Bu mesaj 6 saniye sonra otomatik olarak silinecektir.' });
+
+            // Onay mesajını gönder
+            const bildiriMesaji = await interaction.reply({ embeds: [temizleEmbed], fetchReply: true });
+
+            // 6 saniye bekleyip bildiri mesajını otomatik temizle
+            setTimeout(() => {
+                interaction.deleteReply().catch(() => null);
+            }, 6000);
+
+        }).catch((err) => {
+            console.error(err);
+            return interaction.reply({ content: '❌ Mesajlar silinirken bir hata oluştu! (Not: Discord kuralları gereği 14 günden eski mesajlar toplu silinemez.)', flags: [MessageFlags.Ephemeral] });
+        });
     }
 
     // --- GÜNLÜK ÖDÜL SİSTEMİ ---
