@@ -32,7 +32,7 @@ const IP_BAN_LOG_KANAL_ID = '1524324280844685493';
 // ----------------
 
 const cekilisKatilimcilari = new Map();
-const gameCooldown = new Map(); // Tüm mini oyunlar için ortak cooldown hafızası
+const gameCooldown = new Map(); 
 const dbDosyasi = './ekonomi.json';
 
 if (!fs.existsSync(dbDosyasi)) {
@@ -64,21 +64,10 @@ function ipBanYetkiKontrol(interaction) {
     return interaction.member.roles.cache.has(IP_BAN_YETKILI_ROL) || interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 }
 
-async function guvenliDM(member, mesaj) {
-    try {
-        if (typeof mesaj === 'string') {
-            await member.send({ content: mesaj });
-        } else {
-            await member.send(mesaj);
-        }
-    } catch (error) {}
-}
-
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Cooldown Kontrol Fonksiyonu
 function cooldownKontrol(userId) {
-    const cooldownSuresi = 5000; // 5 saniye
+    const cooldownSuresi = 5000; 
     if (gameCooldown.has(userId)) {
         const kalanZaman = gameCooldown.get(userId) + cooldownSuresi - Date.now();
         if (kalanZaman > 0) {
@@ -89,7 +78,6 @@ function cooldownKontrol(userId) {
     return null;
 }
 
-// DOĞRU EVENT ADI: 'ready' yapıldı
 client.once('ready', async () => {
     console.log(`${client.user.tag} aktif!`);
 
@@ -99,10 +87,7 @@ client.once('ready', async () => {
     });
 
     const commands = [
-        {
-            name: 'yardım',
-            description: 'ℹ️ Botun tüm komutlarını ve kullanım rehberini gösterir'
-        },
+        { name: 'yardım', description: 'ℹ️ Botun tüm komutlarını ve kullanım rehberini gösterir' },
         {
             name: 'profil',
             description: '📊 Bakiyenizi, seviyenizi ve aktiflik istatistiklerinizi gösterir',
@@ -121,10 +106,7 @@ client.once('ready', async () => {
                 { name: 'miktar', description: 'Gönderilecek miktar', type: ApplicationCommandOptionType.Integer, required: true }
             ]
         },
-        {
-            name: 'günlük',
-            description: '🎁 Her 24 saatte bir şansınıza göre ücretsiz hediye nakit verir'
-        },
+        { name: 'günlük', description: '🎁 Her 24 saatte bir şansınıza göre ücretsiz hediye nakit verir' },
         {
             name: '404cekilis',
             description: '🪙 Belirtilen miktar ödüllü otomatik teslimatlı nakit çekilişi başlatır (Yetkili)',
@@ -184,9 +166,7 @@ client.once('ready', async () => {
         {
             name: 'susturarak',
             description: '🔊 Cezalı bir kullanıcının susturma süresini erkenden kaldırır',
-            options: [
-                { name: 'kullanici', description: 'Susturması açılacak üye', type: ApplicationCommandOptionType.User, required: true }
-            ]
+            options: [{ name: 'kullanici', description: 'Susturması açılacak üye', type: ApplicationCommandOptionType.User, required: true }]
         },
         {
             name: 'kilit',
@@ -235,10 +215,7 @@ client.once('ready', async () => {
                 { name: 'sebep', description: 'Atılma gerekçesi', type: ApplicationCommandOptionType.String, required: false }
             ]
         },
-        {
-            name: 'istatistik',
-            description: '⚙️ Botun ping, uptime ve donanım verilerini gösterir'
-        }
+        { name: 'istatistik', description: '⚙️ Botun ping, uptime ve donanım verilerini gösterir' }
     ];
 
     await client.application.commands.set(commands);
@@ -265,12 +242,16 @@ client.on('messageCreate', async (message) => {
         data[userId].xp -= gerekenXp;
         data[userId].seviye += 1;
         
+        // KATLANARAK ARTAN SEVİYE ÖDÜLÜ FORMÜLÜ (Yeni Seviye * 100)
+        const seviyeOdulu = data[userId].seviye * 100;
+        data[userId].bakiye += seviyeOdulu;
+
         const lvlEmbed = new EmbedBuilder()
-            .setTitle('🎉 Seviye Atladın!')
-            .setDescription(`Tebrikler ${message.author.toString()}, sunucuda aktif kalarak **Level ${data[userId].seviye}** oldun! 🚀`)
+            .setTitle('🎉 Seviye Atladın ve Nakit Kazandın!')
+            .setDescription(`Tebrikler ${message.author.toString()}, sunucuda aktif kalarak **Level ${data[userId].seviye}** oldun!\n\n🎁 Seviye Ödülü: **+${seviyeOdulu} adet [404 Nakit]** cüzdanına eklendi! 🚀`)
             .setColor('#57F287');
         
-        message.channel.send({ embeds: [lvlEmbed] }).then(m => setTimeout(() => m.delete().catch(() => null), 5000));
+        message.channel.send({ embeds: [lvlEmbed] }).then(m => setTimeout(() => m.delete().catch(() => null), 6000));
     }
 
     veriYaz(data);
@@ -359,7 +340,7 @@ client.on('interactionCreate', async (interaction) => {
     // --- GÜNLÜK ÖDÜL SİSTEMİ ---
     if (commandName === 'günlük') {
         const uVeri = profilGereksinim(interaction.user.id);
-        const beklemeSuresi = 24 * 60 * 60 * 1000; // 24 Saat
+        const beklemeSuresi = 24 * 60 * 60 * 1000; 
         const kalanZaman = uVeri.gunlukZaman + beklemeSuresi - Date.now();
 
         if (kalanZaman > 0) {
@@ -471,7 +452,7 @@ client.on('interactionCreate', async (interaction) => {
     if (commandName === 'profil') {
         const hedefUye = options.getUser('kullanici') || interaction.user;
         const uVeri = profilGereksinim(hedefUye.id);
-        const gerekenXp = uVeri.seviye * 100; // HATA DÜZELTİLDİ: requiredXp yerine gerekenXp kullanıldı
+        const gerekenXp = uVeri.seviye * 100;
 
         const profilEmbed = new EmbedBuilder()
             .setTitle(`📊 ${hedefUye.username} - Oyuncu Profili`)
