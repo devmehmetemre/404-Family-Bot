@@ -275,6 +275,7 @@ client.on('messageCreate', async (message) => {
 });
 
 client.on('interactionCreate', async (interaction) => {
+    // --- BUTON ETKİNLİKLERİ VE KULLANICI GÜNCELLEMELERİ ---
     if (interaction.isButton()) {
         const [action, msgId] = interaction.customId.split('_');
         
@@ -300,12 +301,34 @@ client.on('interactionCreate', async (interaction) => {
                 const index = liste.indexOf(interaction.user.id);
                 liste.splice(index, 1);
                 cekilisKatilimcilari.set(msgId, liste);
-                return interaction.reply({ content: '👋 Çekilişten başarıyla ayrıldınız.', flags: [MessageFlags.Ephemeral] });
+                await interaction.reply({ content: '👋 Çekilişten başarıyla ayrıldınız.', flags: [MessageFlags.Ephemeral] });
             } else {
                 liste.push(interaction.user.id);
                 cekilisKatilimcilari.set(msgId, liste);
-                return interaction.reply({ content: '🎉 Çekilişe başarıyla katıldınız! Bol şans.', flags: [MessageFlags.Ephemeral] });
+                await interaction.reply({ content: '🎉 Çekilişe başarıyla katıldınız! Bol şans.', flags: [MessageFlags.Ephemeral] });
             }
+
+            // Canlı butondaki katılımcı sayısını ve mesaj içeriğini anında güncelleme alanı
+            try {
+                const guncelMesaj = await interaction.channel.messages.fetch(msgId);
+                if (guncelMesaj && guncelMesaj.embeds[0]) {
+                    const eskiEmbed = guncelMesaj.embeds[0];
+                    const yeniEmbed = EmbedBuilder.from(eskiEmbed);
+                    
+                    // Açıklamadaki katılımcı sayısını regex ile bulup güncelleme
+                    let desc = eskiEmbed.description;
+                    desc = desc.replace(/> 👥 \*\*Katılımcı Sayısı:\*\* `\d+`|>\s👥\s\*\*Katılımcı Sayısı:\*\*\s`\d+`/g, `> 👥 **Katılımcı Sayısı:** \`${liste.length}\``);
+                    desc = desc.replace(/> 👥 \*\*Toplam Katılımcı:\*\* `\d+`|>\s👥\s\*\*Toplam Katılımcı:\*\*\s`\d+`/g, `> 👥 **Toplam Katılımcı:** \`${liste.length}\``);
+                    yeniEmbed.setDescription(desc);
+
+                    const guncelButonlar = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId(`katil_${msgId}`).setLabel('🎉 Katıl / Ayrıl').setStyle(ButtonStyle.Success),
+                        new ButtonBuilder().setCustomId(`liste_${msgId}`).setLabel(`👥 Katılımcılar (${liste.length})`).setStyle(ButtonStyle.Primary)
+                    );
+                    await guncelMesaj.edit({ embeds: [yeniEmbed], components: [guncelButonlar] });
+                }
+            } catch(e) {}
+            return;
         }
 
         if (action === 'liste') {
@@ -343,33 +366,21 @@ client.on('interactionCreate', async (interaction) => {
         if (!yetkiKontrol(interaction)) return interaction.reply({ content: '❌ Bu komutu kullanmak için yetkiniz yetersiz.', flags: [MessageFlags.Ephemeral] });
     }
 
-    // --- TEMİZLE KOMUTU (ERENSİ TARZI) ---
+    // --- TEMİZLE KOMUTU ---
     if (commandName === 'temizle') {
         const silinecekMiktar = options.getInteger('sayi');
-
         if (silinecekMiktar < 1 || silinecekMiktar > 100) {
             return interaction.reply({ content: '❌ Tek seferde en az **1**, en fazla **100** mesaj silebilirsiniz.', flags: [MessageFlags.Ephemeral] });
         }
-
-        // Kanaldaki mesajları toplu sil
         await channel.bulkDelete(silinecekMiktar, true).then(async (mesajlar) => {
             const temizleEmbed = new EmbedBuilder()
                 .setTitle('🧹 Kanal Temizlendi')
                 .setDescription(`🚀 Başarıyla kanaldan son atılan **${mesajlar.size}** mesaj silindi ve temizlendi!\n\n*Yönetici: ${interaction.user.toString()}*`)
-                .setColor('#3498DB')
-                .setFooter({ text: 'Bu mesaj 6 saniye sonra otomatik olarak silinecektir.' });
-
-            // Onay mesajını gönder
+                .setColor('#3498DB');
             const bildiriMesaji = await interaction.reply({ embeds: [temizleEmbed], fetchReply: true });
-
-            // 6 saniye bekleyip bildiri mesajını otomatik temizle
-            setTimeout(() => {
-                interaction.deleteReply().catch(() => null);
-            }, 6000);
-
-        }).catch((err) => {
-            console.error(err);
-            return interaction.reply({ content: '❌ Mesajlar silinirken bir hata oluştu! (Not: Discord kuralları gereği 14 günden eski mesajlar toplu silinemez.)', flags: [MessageFlags.Ephemeral] });
+            setTimeout(() => { interaction.deleteReply().catch(() => null); }, 6000);
+        }).catch(() => {
+            return interaction.reply({ content: '❌ Mesajlar silinirken bir hata oluştu! (Not: 14 günden eski mesajlar toplu silinemez.)', flags: [MessageFlags.Ephemeral] });
         });
     }
 
@@ -394,38 +405,30 @@ client.on('interactionCreate', async (interaction) => {
         const dailyEmbed = new EmbedBuilder()
             .setTitle('🎁 Günlük Hediye Dağıtımı')
             .setDescription(`🎉 Harika! Bugünlük şansına tam **+${hediyePara} adet [404 Nakit]** cüzdanına eklendi!\n\nYeni Toplam Bakiyen: **${data[interaction.user.id].bakiye} adet [404 Nakit]**`)
-            .setColor('#57F287')
-            .setTimestamp();
-
+            .setColor('#57F287').setTimestamp();
         return interaction.reply({ embeds: [dailyEmbed] });
     }
 
-    // --- OTOMATİK TESLİMATLI ÇEKİLİŞ ---
-    if (commandName === '404cekilis') {
+    // --- DOĞRU CANLI SAYAÇLI NORMAL ÇEKİLİŞ KOMUTU ---
+    if (commandName === 'cekilis') {
         let kalanSure = options.getInteger('sure');
-        const miktar = options.getInteger('miktar');
+        const odul = options.getString('odul');
+        await interaction.reply({ content: '✨ Çekiliş kuruluyor...', flags: [MessageFlags.Ephemeral] });
 
-        if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz miktar.', flags: [MessageFlags.Ephemeral] });
-        await interaction.reply({ content: '🪙 Otomatik nakit çekilişi kuruluyor...', flags: [MessageFlags.Ephemeral] });
-
-        const cekilisId = interaction.id;
+        const msg = await channel.send({ content: '⏳ Çekiliş paneli hazırlanıyor...' });
+        const cekilisId = msg.id;
         cekilisKatilimcilari.set(cekilisId, []);
 
         const embed = new EmbedBuilder()
-            .setTitle('🪙 404 Family - Büyük Para Çekilişi')
-            .setDescription(`Sistem tarafından otomatik teslimatlı devasa bir nakit dağıtımı başladı!\n\n` +
-                            `> 💰 **Çekiliş Ödülü:** \`${miktar} adet [404 Nakit]\`\n` +
-                            `> ⏳ **Kalan Süre:** \`${kalanSure} saniye\`\n` +
-                            `> 👥 **Katılımcı Sayısı:** \`0\``)
-            .setColor('#FEE75C')
-            .setFooter({ text: 'Kazananın hesabına para otomatik aktarılacaktır.' }).setTimestamp();
+            .setTitle('🎁 404 Family - Çekiliş Şöleni')
+            .setDescription(`Sunucumuzda yeni bir çekiliş başladı!\n\n> 🏆 **Ödül:** \`${odul}\`\n> ⏳ **Kalan Süre:** \`${kalanSure} saniye\`\n> 👥 **Katılımcı Sayısı:** \`0\``)
+            .setColor('#5865F2').setTimestamp();
 
         const butonlar = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`katil_${cekilisId}`).setLabel('🎉 Katıl / Ayrıl').setStyle(ButtonStyle.Success),
             new ButtonBuilder().setCustomId(`liste_${cekilisId}`).setLabel('👥 Katılımcılar (0)').setStyle(ButtonStyle.Primary)
         );
-
-        const msg = await channel.send({ content: '🔔 @everyone **Büyük Nakit Çekilişi Başladı!**', embeds: [embed], components: [butonlar], allowedMentions: { parse: ['everyone'] } });
+        await msg.edit({ content: '🔔 @everyone **Yeni bir çekiliş başladı!**', embeds: [embed], components: [butonlar], allowedMentions: { parse: ['everyone'] } });
 
         const interval = setInterval(async () => {
             kalanSure -= 3;
@@ -433,22 +436,15 @@ client.on('interactionCreate', async (interaction) => {
             try {
                 const anlikListe = cekilisKatilimcilari.get(cekilisId) || [];
                 const guncelEmbed = new EmbedBuilder()
-                    .setTitle('🪙 404 Family - Büyük Para Çekilişi')
-                    .setDescription(`Sistem tarafından otomatik teslimatlı devasa bir nakit dağıtımı başladı!\n\n` +
-                                    `> 💰 **Çekiliş Ödülü:** \`${miktar} adet [404 Nakit]\`\n` +
-                                    `> ⏳ **Kalan Süre:** \`${kalanSure} saniye\`\n` +
-                                    `> 👥 **Katılımcı Sayısı:** \`${anlikListe.length}\``)
-                    .setColor('#FEE75C').setTimestamp();
-
-                const guncelButonlar = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`katil_${cekilisId}`).setLabel('🎉 Katıl / Ayrıl').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId(`liste_${cekilisId}`).setLabel(`👥 Katılımcılar (${anlikListe.length})`).setStyle(ButtonStyle.Primary)
-                );
-                await msg.edit({ embeds: [guncelEmbed], components: [guncelButonlar] });
+                    .setTitle('🎁 404 Family - Çekiliş Şöleni')
+                    .setDescription(`Sunucumuzda yeni bir çekiliş başladı!\n\n> 🏆 **Ödül:** \`${odul}\`\n> ⏳ **Kalan Süre:** \`${kalanSure} saniye\`\n> 👥 **Katılımcı Sayısı:** \`${anlikListe.length}\``)
+                    .setColor('#5865F2').setTimestamp();
+                await msg.edit({ embeds: [guncelEmbed] });
             } catch (err) { clearInterval(interval); }
         }, 3000);
 
         setTimeout(async () => {
+            clearInterval(interval);
             try {
                 const finalListe = cekilisKatilimcilari.get(cekilisId) || [];
                 const pasifButonlar = new ActionRowBuilder().addComponents(
@@ -457,7 +453,72 @@ client.on('interactionCreate', async (interaction) => {
                 );
 
                 if (finalListe.length === 0) {
-                    const bitisEmbed = new EmbedBuilder().setTitle('🪙 Çekiliş Sona Erdi').setDescription(`❌ **Sonucu:** Katılım olmadığı için talihli seçilemedi.`).setColor('#4F545C').setTimestamp();
+                    const bitisEmbed = new EmbedBuilder().setTitle('🎉 Çekiliş Sona Erdi').setDescription(`🏆 **Ödül:** \`${odul}\`\n❌ **Sonuç:** Katılım olmadığı için kazanan seçilemedi.`).setColor('#4F545C').setTimestamp();
+                    await msg.edit({ embeds: [bitisEmbed], components: [pasifButonlar] });
+                    cekilisKatilimcilari.delete(cekilisId);
+                    return channel.send({ content: `⚠️ Çekilişe kimse katılmadığı için talihli çıkmadı.` });
+                }
+
+                const kazananId = finalListe[Math.floor(Math.random() * finalListe.length)];
+                const bitisEmbed = new EmbedBuilder()
+                    .setTitle('🎉 ÇEKİLİŞ SONUÇLANDI 🎉')
+                    .setDescription(`Büyük çekiliş maratonu tamamlandı!\n\n> 🏆 **Ödül:** \`${odul}\`\n> 🍀 **Şanslı Talihli:** <@${kazananId}>`)
+                    .setColor('#2ECC71').setTimestamp();
+
+                await msg.edit({ embeds: [bitisEmbed], components: [pasifButonlar] });
+                await channel.send({ content: `🎊 Tebrikler <@${kazananId}>! **${odul}** çekilişini kazandın!` });
+                cekilisKatilimcilari.delete(cekilisId);
+            } catch (err) {}
+        }, options.getInteger('sure') * 1000);
+    }
+
+    // --- DOĞRU CANLI SAYAÇLI 404 NAKİT ÇEKİLİŞ KOMUTU ---
+    if (commandName === '404cekilis') {
+        let kalanSure = options.getInteger('sure');
+        const miktar = options.getInteger('miktar');
+
+        if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz miktar.', flags: [MessageFlags.Ephemeral] });
+        await interaction.reply({ content: '🪙 Otomatik nakit çekilişi kuruluyor...', flags: [MessageFlags.Ephemeral] });
+
+        const msg = await channel.send({ content: '⏳ 404 Nakit Çekiliş paneli hazırlanıyor...' });
+        const cekilisId = msg.id;
+        cekilisKatilimcilari.set(cekilisId, []);
+
+        const embed = new EmbedBuilder()
+            .setTitle('🪙 404 Family - Büyük Para Çekilişi')
+            .setDescription(`Sistem tarafından otomatik teslimatlı devasa bir nakit dağıtımı başladı!\n\n> 💰 **Çekiliş Ödülü:** \`${miktar} adet [404 Nakit]\`\n> ⏳ **Kalan Süre:** \`${kalanSure} saniye\`\n> 👥 **Katılımcı Sayısı:** \`0\``)
+            .setColor('#FEE75C').setTimestamp();
+
+        const butonlar = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`katil_${cekilisId}`).setLabel('🎉 Katıl / Ayrıl').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`liste_${cekilisId}`).setLabel('👥 Katılımcılar (0)').setStyle(ButtonStyle.Primary)
+        );
+        await msg.edit({ content: '🔔 @everyone **Büyük Nakit Çekilişi Başladı!**', embeds: [embed], components: [butonlar], allowedMentions: { parse: ['everyone'] } });
+
+        const interval = setInterval(async () => {
+            kalanSure -= 3;
+            if (kalanSure <= 0) { clearInterval(interval); return; }
+            try {
+                const anlikListe = cekilisKatilimcilari.get(cekilisId) || [];
+                const guncelEmbed = new EmbedBuilder()
+                    .setTitle('🪙 404 Family - Büyük Para Çekilişi')
+                    .setDescription(`Sistem tarafından otomatik teslimatlı devasa bir nakit dağıtımı başladı!\n\n> 💰 **Çekiliş Ödülü:** \`${miktar} adet [404 Nakit]\`\n> ⏳ **Kalan Süre:** \`${kalanSure} saniye\`\n> 👥 **Katılımcı Sayısı:** \`${anlikListe.length}\``)
+                    .setColor('#FEE75C').setTimestamp();
+                await msg.edit({ embeds: [guncelEmbed] });
+            } catch (err) { clearInterval(interval); }
+        }, 3000);
+
+        setTimeout(async () => {
+            clearInterval(interval);
+            try {
+                const finalListe = cekilisKatilimcilari.get(cekilisId) || [];
+                const pasifButonlar = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`disabled_katil`).setLabel('🎉 Katılım Sonlandı').setStyle(ButtonStyle.Secondary).setDisabled(true),
+                    new ButtonBuilder().setCustomId(`disabled_liste`).setLabel(`👥 Toplam Katılımcı (${finalListe.length})`).setStyle(ButtonStyle.Secondary).setDisabled(true)
+                );
+
+                if (finalListe.length === 0) {
+                    const bitisEmbed = new EmbedBuilder().setTitle('🪙 Çekiliş Sona Erdi').setDescription(`❌ **Sonuç:** Katılım olmadığı için talihli seçilemedi.`).setColor('#4F545C').setTimestamp();
                     await msg.edit({ embeds: [bitisEmbed], components: [pasifButonlar] });
                     cekilisKatilimcilari.delete(cekilisId);
                     return channel.send({ content: `⚠️ Çekilişe kimse katılmadığı için para kasada kaldı.` });
@@ -472,10 +533,8 @@ client.on('interactionCreate', async (interaction) => {
 
                 const bitisEmbed = new EmbedBuilder()
                     .setTitle('🎉 ÇEKİLİŞ SONUÇLANDI 🎉')
-                    .setDescription(`Büyük para dağıtımı sona erdi! Şanslı üyenin cüzdanı dolduruldu.\n\n` +
-                                    `> 💰 **Dağıtılan Ödül:** \`${miktar} adet [404 Nakit]\`\n` +
-                                    `> 🍀 **Şanslı Talihli:** <@${kazananId}>\n\n🌟 *Ödül sistem tarafından otomatik yüklenmiştir. \`/bakiye\` yazarak kontrol edebilir!*`)
-                    .setColor('#2ECC71').setThumbnail(guild.iconURL({ dynamic: true })).setTimestamp();
+                    .setDescription(`Büyük para dağıtımı sona erdi! Şanslı üyenin cüzdanı dolduruldu.\n\n> 💰 **Dağıtılan Ödül:** \`${miktar} adet [404 Nakit]\`\n> 🍀 **Şanslı Talihli:** <@${kazananId}>\n\n🌟 *Ödül sistem tarafından otomatik yüklenmiştir.*`)
+                    .setColor('#2ECC71').setTimestamp();
 
                 await msg.edit({ embeds: [bitisEmbed], components: [pasifButonlar] });
                 await channel.send({ content: `🎊 Tebrikler <@${kazananId}>! Çekilişi kazandın ve **${miktar} adet [404 Nakit]** hesabına otomatik yüklendi!` });
@@ -489,7 +548,6 @@ client.on('interactionCreate', async (interaction) => {
         const hedefUye = options.getUser('kullanici') || interaction.user;
         const uVeri = profilGereksinim(hedefUye.id);
         const gerekenXp = uVeri.seviye * 100;
-
         const profilEmbed = new EmbedBuilder()
             .setTitle(`📊 ${hedefUye.username} - Oyuncu Profili`)
             .setThumbnail(hedefUye.displayAvatarURL({ dynamic: true }))
@@ -499,33 +557,28 @@ client.on('interactionCreate', async (interaction) => {
                 { name: '✨ Seviye (Level)', value: `\`🌟 Level ${uVeri.seviye}\``, inline: true },
                 { name: '📊 Aktiflik Gelişimi (XP)', value: `\`${uVeri.xp} / ${gerekenXp} XP\` (Sonraki seviyeye \`${gerekenXp - uVeri.xp}\` kaldı.)`, inline: false }
             ).setTimestamp();
-
         return interaction.reply({ embeds: [profilEmbed] });
     }
 
     if (commandName === 'bakiye') {
         const hedefUye = options.getUser('kullanici') || interaction.user;
         const uVeri = profilGereksinim(hedefUye.id);
-
         const bakiyeEmbed = new EmbedBuilder()
             .setTitle('💰 Cüzdan Durumu')
             .setDescription(`${hedefUye.toString()} cüzdanında şu anda **${uVeri.bakiye}** \`adet [404 Nakit]\` para bulunduruyor.`)
             .setColor('#FEE75C').setTimestamp();
-
         return interaction.reply({ embeds: [bakiyeEmbed] });
     }
 
     if (commandName === 'gönder') {
         const alici = options.getUser('kullanici');
         const miktar = options.getInteger('miktar');
-
         if (alici.id === interaction.user.id) return interaction.reply({ content: '❌ Kendinize para gönderemezsiniz.', flags: [MessageFlags.Ephemeral] });
         if (alici.bot) return interaction.reply({ content: '❌ Bot hesaplarına transfer yapılamaz.', flags: [MessageFlags.Ephemeral] });
         if (miktar <= 0) return interaction.reply({ content: '❌ Lütfen geçerli bir miktar girin.', flags: [MessageFlags.Ephemeral] });
 
         const gonderenVeri = profilGereksinim(interaction.user.id);
         profilGereksinim(alici.id);
-
         if (gonderenVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiye! Mevcut paranız: **${gonderenVeri.bakiye} adet [404 Nakit]**`, flags: [MessageFlags.Ephemeral] });
 
         const data = veriOku();
@@ -537,7 +590,6 @@ client.on('interactionCreate', async (interaction) => {
             .setTitle('💸 Başarılı Transfer')
             .setDescription(`🎉 ${interaction.user.toString()} başarıyla ${alici.toString()} kullanıcısına **${miktar} adet [404 Nakit]** gönderdi!`)
             .setColor('#57F287').setTimestamp();
-
         return interaction.reply({ embeds: [transferEmbed] });
     }
 
@@ -554,8 +606,7 @@ client.on('interactionCreate', async (interaction) => {
         const baslangicEmbed = new EmbedBuilder()
             .setTitle('🪙 YAZI TURA ATILIYOR... 🪙')
             .setColor('#FEE75C')
-            .setDescription(`> 🪙 **[ 🔄 Para havada dönüyor... ]**\n\nBahis: **${miktar} adet [404 Nakit]**`)
-            .setTimestamp();
+            .setDescription(`> 🪙 **[ 🔄 Para havada dönüyor... ]**\n\nBahis: **${miktar} adet [404 Nakit]**`).setTimestamp();
 
         await interaction.reply({ embeds: [baslangicEmbed] });
         await sleep(1500); 
@@ -569,16 +620,13 @@ client.on('interactionCreate', async (interaction) => {
 
         if (tahmin === rastgeleSonuc) {
             data[userId].bakiye += miktar;
-            finalEmbed.setTitle('🎉 Kazandın! Yazı Tura')
-                .setColor('#57F287')
+            finalEmbed.setTitle('🎉 Kazandın! Yazı Tura').setColor('#57F287')
                 .setDescription(`Para yere düştü ve ${durumMetni} geldi!\nHesabına **+${miktar} adet [404 Nakit]** eklendi.\nYeni bakiyen: **${data[userId].bakiye}**`);
         } else {
             data[userId].bakiye -= miktar;
-            finalEmbed.setTitle('❌ Kaybettin... Yazı Tura')
-                .setColor('#ED4245')
+            finalEmbed.setTitle('❌ Kaybettin... Yazı Tura').setColor('#ED4245')
                 .setDescription(`Para yere düştü ve ${durumMetni} geldi...\nHesabından **-${miktar} adet [404 Nakit]** eksildi.\nYeni bakiyen: **${data[userId].bakiye}**`);
         }
-        
         veriYaz(data);
         return interaction.editReply({ embeds: [finalEmbed] });
     }
@@ -595,11 +643,9 @@ client.on('interactionCreate', async (interaction) => {
         const zarSallaniyorEmbed = new EmbedBuilder()
             .setTitle('🎲 ZARLAR ATILIYOR... 🎲')
             .setColor('#FEE75C')
-            .setDescription(`> 🎲 **[ Zarlar kupada sallanıyor... 🔄 ]**\n\nKim daha yüksek atacak? 👀`)
-            .setTimestamp();
+            .setDescription(`> 🎲 **[ Zarlar kupada sallanıyor... 🔄 ]**\n\nKim daha yüksek atacak? 👀`).setTimestamp();
 
         await interaction.reply({ embeds: [zarSallaniyorEmbed] });
-        
         await sleep(1000);
         const oyuncuZar = Math.floor(Math.random() * 6) + 1;
         await interaction.editReply({
@@ -621,7 +667,6 @@ client.on('interactionCreate', async (interaction) => {
         } else {
             sonucEmbed.setTitle('🤝 Berabere! Zar').setColor('#FEE75C').setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nZarlar eşit geldi, paran kasana iade edildi!`);
         }
-        
         veriYaz(data);
         return interaction.editReply({ embeds: [sonucEmbed] });
     }
@@ -638,11 +683,9 @@ client.on('interactionCreate', async (interaction) => {
         const donmeEmbed = new EmbedBuilder()
             .setTitle('🎰 SLOTS ÇEVRİLİYOR... 🎰')
             .setColor('#FEE75C')
-            .setDescription(`> ┃ 🔄 ┃ 🔄 ┃ 🔄 ┃\n\nMakine dönüyor, şansını hazırla! 💸`)
-            .setTimestamp();
+            .setDescription(`> ┃ 🔄 ┃ 🔄 ┃ 🔄 ┃\n\nMakine dönüyor, şansını hazırla! 💸`).setTimestamp();
 
         await interaction.reply({ embeds: [donmeEmbed] });
-
         const slotOgeleri = ['🍒', '💎', '🍊', '🔔', '🍀'];
         
         await sleep(800);
@@ -654,7 +697,7 @@ client.on('interactionCreate', async (interaction) => {
         await sleep(800);
         const s2 = slotOgeleri[Math.floor(Math.random() * slotOgeleri.length)];
         await interaction.editReply({
-            embeds: [new EmbedBuilder().setTitle('🎰 SLOTS ÇEVRİLİYOR... 🎰').setColor('#FEE75C').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ 🔄 ┃\n\nİkinci çark durdu, heyecan dorukta!`).setTimestamp()]
+            embeds: [new EmbedBuilder().setTitle('🎰 SLOTS ÇEVRİLİYOR... 🎰').setColor('#FEE75C').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ 🔄 ┃\n\nİkinci çark durdu!`).setTimestamp()]
         });
 
         await sleep(800);
@@ -674,7 +717,6 @@ client.on('interactionCreate', async (interaction) => {
             data[userId].bakiye -= miktar;
             finalEmbed.setTitle('❌ Kaybettin... Slots').setColor('#ED4245').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nHiçbir simge uyuşmadı. **-${miktar} adet [404 Nakit]** kaybettin.`);
         }
-        
         veriYaz(data);
         return interaction.editReply({ embeds: [finalEmbed] });
     }
@@ -684,10 +726,7 @@ client.on('interactionCreate', async (interaction) => {
             .setTitle(`⚡ ${client.user.username} - Yardım Merkezi`)
             .setDescription(`Merhaba **${interaction.user.username}**, sunucunun yönetim kalitesini ve eğlencesini artırmak için burayanım! Aşağıdaki butondan tüm özelliklerime göz atabilirsin.`)
             .setColor('#5865F2').setThumbnail(client.user.avatarURL()).setTimestamp();
-
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('helpmenu_view').setLabel('📚 Komut Listesini Aç').setStyle(ButtonStyle.Primary)
-        );
+        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('helpmenu_view').setLabel('📚 Komut Listesini Aç').setStyle(ButtonStyle.Primary));
         return interaction.reply({ embeds: [embed], components: [row] });
     }
 
@@ -746,26 +785,6 @@ client.on('interactionCreate', async (interaction) => {
             await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false });
             await interaction.reply({ content: '🔒 Kanal kilitlendi.' });
         }
-    }
-
-    if (commandName === 'cekilis') {
-        let kalanSure = options.getInteger('sure'); const odul = options.getString('odul');
-        await interaction.reply({ content: '✨ Çekiliş kuruluyor...', flags: [MessageFlags.Ephemeral] });
-        const cekilisId = interaction.id; cekilisKatilimcilari.set(cekilisId, []);
-
-        const embed = new EmbedBuilder().setTitle('🎁 Çekiliş Şöleni').setDescription(`🏆 Ödül: \`${odul}\`\n⏳ Süre: \`${kalanSure}sn\``).setColor('#5865F2');
-        const butonlar = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`katil_${cekilisId}`).setLabel('🎉 Katıl / Ayrıl').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`liste_${cekilisId}`).setLabel('👥 Katılımcılar').setStyle(ButtonStyle.Primary)
-        );
-        const msg = await channel.send({ embeds: [embed], components: [butonlar] });
-
-        setTimeout(async () => {
-            const finalListe = cekilisKatilimcilari.get(cekilisId) || [];
-            if (finalListe.length === 0) return channel.send({ content: `⚠️ Çekilişe katılan olmadı.` });
-            const kazananId = finalListe[Math.floor(Math.random() * finalListe.length)];
-            await channel.send({ content: `🎊 Tebrikler <@${kazananId}>! **${odul}** kazandın!` });
-        }, kalanSure * 1000);
     }
 
     if (commandName === 'duyuru') {
