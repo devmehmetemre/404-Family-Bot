@@ -32,6 +32,7 @@ const IP_BAN_LOG_KANAL_ID = '1524324280844685493';
 // ----------------
 
 const cekilisKatilimcilari = new Map();
+const gameCooldown = new Map(); // Tüm mini oyunlar için ortak cooldown hafızası
 const dbDosyasi = './ekonomi.json';
 
 if (!fs.existsSync(dbDosyasi)) {
@@ -74,6 +75,19 @@ async function guvenliDM(member, mesaj) {
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Cooldown Kontrol Fonksiyonu
+function cooldownKontrol(userId) {
+    const cooldownSuresi = 5000; // 5 saniye
+    if (gameCooldown.has(userId)) {
+        const kalanZaman = gameCooldown.get(userId) + cooldownSuresi - Date.now();
+        if (kalanZaman > 0) {
+            return (kalanZaman / 1000).toFixed(1);
+        }
+    }
+    gameCooldown.set(userId, Date.now());
+    return null;
+}
 
 client.once('clientReady', async () => {
     console.log(`${client.user.tag} aktif!`);
@@ -120,7 +134,7 @@ client.once('clientReady', async () => {
         },
         {
             name: 'yazıtura',
-            description: '🪙 Belirttiğiniz miktar ile yazı tura oynarsınız',
+            description: '🪙 Belirttiğiniz miktar ile canlı yazı tura oynarsınız (5sn Cooldown)',
             options: [
                 { name: 'miktar', description: 'Ortaya koyulacak miktar', type: ApplicationCommandOptionType.Integer, required: true },
                 { 
@@ -134,12 +148,12 @@ client.once('clientReady', async () => {
         },
         {
             name: 'zar',
-            description: '🎲 Bot ile zar kapıştırma oyunu oynarsınız',
+            description: '🎲 Bot ile canlı zar kapıştırma oyunu oynarsınız (5sn Cooldown)',
             options: [{ name: 'miktar', description: 'Ortaya koyulacak miktar', type: ApplicationCommandOptionType.Integer, required: true }]
         },
         {
             name: 'slots',
-            description: '🎰 Şansınızı şık slot makinesinde denersiniz',
+            description: '🎰 Şansınızı canlı slot makinesinde denersiniz (5sn Cooldown)',
             options: [{ name: 'miktar', description: 'Ortaya koyulacak miktar', type: ApplicationCommandOptionType.Integer, required: true }]
         },
         {
@@ -341,7 +355,7 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: `⏳ Günlük ödülünü zaten aldın! Tekrar alabilmek için **${saat} saat ${dakika} dakika** beklemelisin.`, flags: [MessageFlags.Ephemeral] });
         }
 
-        const hediyePara = Math.floor(Math.random() * 201) + 50; // 50 - 250 arası
+        const hediyePara = Math.floor(Math.random() * 201) + 50; 
         const data = veriOku();
         data[interaction.user.id].bakiye += hediyePara;
         data[interaction.user.id].gunlukZaman = Date.now();
@@ -453,7 +467,7 @@ client.on('interactionCreate', async (interaction) => {
             .addFields(
                 { name: '🪙 Hesap Bakiyesi', value: `\`${uVeri.bakiye} adet [404 Nakit]\``, inline: true },
                 { name: '✨ Seviye (Level)', value: `\`🌟 Level ${uVeri.seviye}\``, inline: true },
-                { name: '📊 Aktiflik Gelişimi (XP)', value: `\`${uVeri.xp} / ${generenXp = uVeri.seviye * 100} XP\` (Sonraki seviyeye \`${gerekenXp - uVeri.xp}\` kaldı.)`, inline: false }
+                { name: '📊 Aktiflik Gelişimi (XP)', value: `\`${uVeri.xp} / ${gerekenXp} XP\` (Sonraki seviyeye \`${requiredXp - uVeri.xp}\` kaldı.)`, inline: false }
             ).setTimestamp();
 
         return interaction.reply({ embeds: [profilEmbed] });
@@ -497,90 +511,167 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ embeds: [transferEmbed] });
     }
 
+    // --- CANLI & COOLDOWN'LU YAZI TURA (OwO TARZI) ---
     if (commandName === 'yazıtura') {
+        const userId = interaction.user.id;
+        const kalanSaniye = cooldownKontrol(userId);
+        if (kalanSaniye) {
+            return interaction.reply({ content: `⏳ Çok hızlısın! Oyun havasına girmek için **${kalanSaniye} saniye** beklemelisin.`, flags: [MessageFlags.Ephemeral] });
+        }
+
         const miktar = options.getInteger('miktar');
         const tahmin = options.getString('tahmin');
-        const uVeri = profilGereksinim(interaction.user.id);
+        const uVeri = profilGereksinim(userId);
 
         if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz bahis miktarı.', flags: [MessageFlags.Ephemeral] });
-        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiyesi!`, flags: [MessageFlags.Ephemeral] });
+        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiye!`, flags: [MessageFlags.Ephemeral] });
+
+        // İlk fırlatma mesajı
+        const baslangicEmbed = new EmbedBuilder()
+            .setTitle('🪙 YAZI TURA ATILIYOR... 🪙')
+            .setColor('#FEE75C')
+            .setDescription(`> 🪙 **[ 🔄 Para havada dönüyor... ]**\n\nBahis: **${miktar} adet [404 Nakit]**`)
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [baslangicEmbed] });
+        await sleep(1500); // Canlı dönme bekleme süresi
 
         const sonuclar = ['yazi', 'tura'];
         const rastgeleSonuc = sonuclar[Math.floor(Math.random() * sonuclar.length)];
         const durumMetni = rastgeleSonuc === 'yazi' ? '🪙 **YAZI**' : '🪙 **TURA**';
 
         const data = veriOku();
+        const finalEmbed = new EmbedBuilder().setTimestamp();
+
         if (tahmin === rastgeleSonuc) {
-            data[interaction.user.id].bakiye += miktar;
-            const embed = new EmbedBuilder().setTitle('🎉 Kazandın!').setDescription(`Para fırlatıldı ve ${durumMetni} geldi!\nHesabına **+${miktar} adet [404 Nakit]** eklendi. Yeni bakiyen: **${data[interaction.user.id].bakiye}**`).setColor('#57F287');
-            interaction.reply({ embeds: [embed] });
+            data[userId].bakiye += miktar;
+            finalEmbed.setTitle('🎉 Kazandın! Yazı Tura')
+                .setColor('#57F287')
+                .setDescription(`Para yere düştü ve ${durumMetni} geldi!\nHesabına **+${miktar} adet [404 Nakit]** eklendi.\nYeni bakiyen: **${data[userId].bakiye}**`);
         } else {
-            data[interaction.user.id].bakiye -= miktar;
-            const embed = new EmbedBuilder().setTitle('❌ Kaybettin...').setDescription(`Para fırlatıldı ve ${durumMetni} geldi!\nHesabından **-${miktar} adet [404 Nakit]** kesildi. Yeni bakiyen: **${data[interaction.user.id].bakiye}**`).setColor('#ED4245');
-            interaction.reply({ embeds: [embed] });
+            data[userId].bakiye -= miktar;
+            finalEmbed.setTitle('❌ Kaybettin... Yazı Tura')
+                .setColor('#ED4245')
+                .setDescription(`Para yere düştü ve ${durumMetni} geldi...\nHesabından **-${miktar} adet [404 Nakit]** eksildi.\nYeni bakiyen: **${data[userId].bakiye}**`);
         }
+        
         veriYaz(data);
+        return interaction.editReply({ embeds: [finalEmbed] });
     }
 
+    // --- CANLI & COOLDOWN'LU ZAR KAPIŞMASI (OwO TARZI) ---
     if (commandName === 'zar') {
+        const userId = interaction.user.id;
+        const kalanSaniye = cooldownKontrol(userId);
+        if (kalanSaniye) {
+            return interaction.reply({ content: `⏳ Çok hızlısın! Oyun havasına girmek için **${kalanSaniye} saniye** beklemelisin.`, flags: [MessageFlags.Ephemeral] });
+        }
+
         const miktar = options.getInteger('miktar');
-        const uVeri = profilGereksinim(interaction.user.id);
+        const uVeri = profilGereksinim(userId);
 
         if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz bahis miktarı.', flags: [MessageFlags.Ephemeral] });
-        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiyesi!`, flags: [MessageFlags.Ephemeral] });
+        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiye!`, flags: [MessageFlags.Ephemeral] });
 
+        // Sallama animasyonu mesajı
+        const zarSallaniyorEmbed = new EmbedBuilder()
+            .setTitle('🎲 ZARLAR ATILIYOR... 🎲')
+            .setColor('#FEE75C')
+            .setDescription(`> 🎲 **[ Zarlar kupada sallanıyor... 🔄 ]**\n\nKim daha yüksek atacak? 👀`)
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [zarSallaniyorEmbed] });
+        
+        await sleep(1000);
         const oyuncuZar = Math.floor(Math.random() * 6) + 1;
+        await interaction.editReply({
+            embeds: [new EmbedBuilder().setTitle('🎲 ZARLAR ATILIYOR... 🎲').setColor('#FEE75C').setDescription(`> 🎲 Senin Zarın: **${oyuncuZar}**\n> 🤖 Botun Zarı: **🔄 Sallanıyor...**`).setTimestamp()]
+        });
+
+        await sleep(1000);
         const botZar = Math.floor(Math.random() * 6) + 1;
 
         const data = veriOku();
-        let sonucEmbed = new EmbedBuilder().setTimestamp();
+        const sonucEmbed = new EmbedBuilder().setTimestamp();
 
         if (oyuncuZar > botZar) {
-            data[interaction.user.id].bakiye += miktar;
-            sonucEmbed.setTitle('🎉 Sen Kazandın!').setColor('#57F287').setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nHarika! **+${miktar} adet [404 Nakit]** kazandın.`);
+            data[userId].bakiye += miktar;
+            sonucEmbed.setTitle('🎉 Sen Kazandın! Zar').setColor('#57F287').setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nHarika! Başarıyla botu alt ettin ve **+${miktar} adet [404 Nakit]** kazandın.`);
         } else if (botZar > oyuncuZar) {
-            data[interaction.user.id].bakiye -= miktar;
-            sonucEmbed.setTitle('❌ Bot Kazandı...').setColor('#ED4245').setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nŞansına küs, **-${miktar} adet [404 Nakit]** kaybettin.`);
+            data[userId].bakiye -= miktar;
+            sonucEmbed.setTitle('❌ Bot Kazandı... Zar').setColor('#ED4245').setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nŞansına küs, bot daha büyük attı ve **-${miktar} adet [404 Nakit]** kaybettin.`);
         } else {
-            sonucEmbed.setTitle('🤝 Berabere!').setColor('#FEE75C').setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nZarlar eşit geldi, paran iade edildi!`);
+            sonucEmbed.setTitle('🤝 Berabere! Zar').setColor('#FEE75C').setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nZarlar eşit geldi, paran kasana iade edildi!`);
         }
+        
         veriYaz(data);
-        return interaction.reply({ embeds: [sonucEmbed] });
+        return interaction.editReply({ embeds: [sonucEmbed] });
     }
 
+    // --- CANLI & COOLDOWN'LU SLOTS (OwO TARZI) ---
     if (commandName === 'slots') {
+        const userId = interaction.user.id;
+        const kalanSaniye = cooldownKontrol(userId);
+        if (kalanSaniye) {
+            return interaction.reply({ content: `⏳ Çok hızlısın! Oyun havasına girmek için **${kalanSaniye} saniye** beklemelisin.`, flags: [MessageFlags.Ephemeral] });
+        }
+
         const miktar = options.getInteger('miktar');
-        const uVeri = profilGereksinim(interaction.user.id);
+        const uVeri = profilGereksinim(userId);
 
         if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz bahis miktarı.', flags: [MessageFlags.Ephemeral] });
-        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiyesi!`, flags: [MessageFlags.Ephemeral] });
+        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiye!`, flags: [MessageFlags.Ephemeral] });
+
+        // İlk dönme efekti mesajı
+        const donmeEmbed = new EmbedBuilder()
+            .setTitle('🎰 SLOTS ÇEVRİLİYOR... 🎰')
+            .setColor('#FEE75C')
+            .setDescription(`> ┃ 🔄 ┃ 🔄 ┃ 🔄 ┃\n\nMakine dönüyor, şansını hazırla! 💸`)
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [donmeEmbed] });
 
         const slotOgeleri = ['🍒', '💎', '🍊', '🔔', '🍀'];
+        
+        await sleep(800);
         const s1 = slotOgeleri[Math.floor(Math.random() * slotOgeleri.length)];
+        await interaction.editReply({
+            embeds: [new EmbedBuilder().setTitle('🎰 SLOTS ÇEVRİLİYOR... 🎰').setColor('#FEE75C').setDescription(`> ┃ ${s1} ┃ 🔄 ┃ 🔄 ┃\n\nİlk çark durdu!`).setTimestamp()]
+        });
+
+        await sleep(800);
         const s2 = slotOgeleri[Math.floor(Math.random() * slotOgeleri.length)];
+        await interaction.editReply({
+            embeds: [new EmbedBuilder().setTitle('🎰 SLOTS ÇEVRİLİYOR... 🎰').setColor('#FEE75C').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ 🔄 ┃\n\nİkinci çark durdu, heyecan dorukta!`).setTimestamp()]
+        });
+
+        await sleep(800);
         const s3 = slotOgeleri[Math.floor(Math.random() * slotOgeleri.length)];
 
+        // Sonuç hesaplama
         const data = veriOku();
-        const slotEmbed = new EmbedBuilder().setTimestamp();
+        const finalEmbed = new EmbedBuilder().setTimestamp();
 
         if (s1 === s2 && s2 === s3) {
-            const kazanc = miktar * 3; data[interaction.user.id].bakiye += kazanc;
-            slotEmbed.setTitle('🎰 MEGA WIN! SLOTS 🎰').setColor('#57F287').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nMüthiş! Üçlü kombinasyon tutturdun ve **+${kazanc} adet [404 Nakit]** kazandın!`);
+            const kazanc = miktar * 3; 
+            data[userId].bakiye += kazanc;
+            finalEmbed.setTitle('🎰 MEGA WIN! SLOTS 🎰').setColor('#57F287').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nMüthiş! Üçlü kombinasyon tutturdun ve **+${kazanc} adet [404 Nakit]** kazandın!`);
         } else if (s1 === s2 || s2 === s3 || s1 === s3) {
-            data[interaction.user.id].bakiye += miktar;
-            slotEmbed.setTitle('🎉 Küçük Kazanç! Slots').setColor('#3498DB').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nİkili yakaladın ve paranı katladın! **+${miktar} adet [404 Nakit]** eklendi.`);
+            data[userId].bakiye += miktar;
+            finalEmbed.setTitle('🎉 Küçük Kazanç! Slots').setColor('#3498DB').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nİkili yakaladın ve paranı katladın! **+${miktar} adet [404 Nakit]** eklendi.`);
         } else {
-            data[interaction.user.id].bakiye -= miktar;
-            slotEmbed.setTitle('❌ Kaybettin... Slots').setColor('#ED4245').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nHiçbir simge uyuşmadı. **-${miktar} adet [404 Nakit]** kaybettin.`);
+            data[userId].bakiye -= miktar;
+            finalEmbed.setTitle('❌ Kaybettin... Slots').setColor('#ED4245').setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nHiçbir simge uyuşmadı. **-${miktar} adet [404 Nakit]** kaybettin.`);
         }
+        
         veriYaz(data);
-        return interaction.reply({ embeds: [slotEmbed] });
+        return interaction.editReply({ embeds: [finalEmbed] });
     }
 
     if (commandName === 'yardım') {
         const embed = new EmbedBuilder()
             .setTitle(`⚡ ${client.user.username} - Yardım Merkezi`)
-            .setDescription(`Merhaba **${interaction.user.username}**, sunucunun yönetim kalitesini ve eğlencesini artırmak için buradayım! Aşağıdaki butondan tüm özelliklerime göz atabilirsin.`)
+            .setDescription(`Merhaba **${interaction.user.username}**, sunucunun yönetim kalitesini ve eğlencesini artırmak için burayanım! Aşağıdaki butondan tüm özelliklerime göz atabilirsin.`)
             .setColor('#5865F2').setThumbnail(client.user.avatarURL()).setTimestamp();
 
         const row = new ActionRowBuilder().addComponents(
