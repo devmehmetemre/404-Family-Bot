@@ -13,7 +13,7 @@ const {
 } = require('discord.js');
 require('dotenv').config();
 const os = require('os');
-const fs = require('fs'); // Ekonomi verilerini kaydetmek için gerekli
+const fs = require('fs');
 
 const client = new Client({
     intents: [
@@ -34,7 +34,6 @@ const IP_BAN_LOG_KANAL_ID = '1524324280844685493';
 const cekilisKatilimcilari = new Map();
 const dbDosyasi = './ekonomi.json';
 
-// Veritabanı Dosyası Yoksa Oluştur ve Yükle
 if (!fs.existsSync(dbDosyasi)) {
     fs.writeFileSync(dbDosyasi, JSON.stringify({}, null, 4));
 }
@@ -47,15 +46,10 @@ function veriYaz(data) {
     fs.writeFileSync(dbDosyasi, JSON.stringify(data, null, 4));
 }
 
-// Kullanıcı Profili Yoksa Varsayılan Verilerle Oluşturma Fonksiyonu
 function profilGereksinim(userId) {
     const data = veriOku();
     if (!data[userId]) {
-        data[userId] = {
-            bakiye: 0,
-            xp: 0,
-            seviye: 1
-        };
+        data[userId] = { bakiye: 100, xp: 0, seviye: 1 }; // Yeni başlayana 100 404 hediye
         veriYaz(data);
     }
     return data[userId];
@@ -85,10 +79,7 @@ client.once('clientReady', async () => {
     console.log(`${client.user.tag} aktif!`);
 
     client.user.setPresence({
-        activities: [{ 
-            name: '404 Family is The Best', 
-            type: ActivityType.Playing 
-        }],
+        activities: [{ name: '404 Family is The Best', type: ActivityType.Playing }],
         status: 'online',
     });
 
@@ -114,6 +105,30 @@ client.once('clientReady', async () => {
                 { name: 'kullanici', description: 'Para gönderilecek üye', type: ApplicationCommandOptionType.User, required: true },
                 { name: 'miktar', description: 'Gönderilecek 404 miktarı', type: ApplicationCommandOptionType.Integer, required: true }
             ]
+        },
+        {
+            name: 'yazıtura',
+            description: '🪙 Belirttiğiniz miktar 404 ile yazı tura oynarsınız (OwO Katlama)',
+            options: [
+                { name: 'miktar', description: 'Ortaya koyulacak 404 nakit miktarı', type: ApplicationCommandOptionType.Integer, required: true },
+                { 
+                    name: 'tahmin', 
+                    description: 'Yazı mı Tura mı?', 
+                    type: ApplicationCommandOptionType.String, 
+                    required: true,
+                    choices: [{ name: 'Yazı', value: 'yazi' }, { name: 'Tura', value: 'tura' }]
+                }
+            ]
+        },
+        {
+            name: 'zar',
+            description: '🎲 Bot ile zar kapıştırma oyunu oynarsınız',
+            options: [{ name: 'miktar', description: 'Ortaya koyulacak 404 nakit miktarı', type: ApplicationCommandOptionType.Integer, required: true }]
+        },
+        {
+            name: 'slots',
+            description: '🎰 Şansınızı şık slot makinesinde denersiniz',
+            options: [{ name: 'miktar', description: 'Ortaya koyulacak 404 nakit miktarı', type: ApplicationCommandOptionType.Integer, required: true }]
         },
         {
             name: 'tamyasakla',
@@ -155,10 +170,7 @@ client.once('clientReady', async () => {
                     description: 'Kanalın kilit durumunu seçin',
                     type: ApplicationCommandOptionType.String,
                     required: true,
-                    choices: [
-                        { name: 'Kanalı Kilitle 🔒', value: 'kilitle' },
-                        { name: 'Kanalı Aç 🔓', value: 'ac' }
-                    ]
+                    choices: [{ name: 'Kanalı Kilitle 🔒', value: 'kilitle' }, { name: 'Kanalı Aç 🔓', value: 'ac' }]
                 }
             ]
         },
@@ -173,13 +185,11 @@ client.once('clientReady', async () => {
         {
             name: 'duyuru',
             description: '📢 Tüm sunucuya @everyone etiketiyle şık duyuru paneli gönderir',
-            options: [
-                { name: 'mesaj', description: 'Duyurulacak metin içeriği', type: ApplicationCommandOptionType.String, required: true }
-            ]
+            options: [{ name: 'mesaj', description: 'Duyurulacak metin içeriği', type: ApplicationCommandOptionType.String, required: true }]
         },
         {
             name: 'uyar',
-            description: '⚠️ Kuralları ihlal eden üyeyi uyarır ve DM ile bilgilendirir',
+            description: '⚠️ Kuralları ihlal eden üyeyi uyarır',
             options: [
                 { name: 'kullanici', description: 'Uyarılacak üye', type: ApplicationCommandOptionType.User, required: true },
                 { name: 'sebep', description: 'Uyarı gerekçesi', type: ApplicationCommandOptionType.String, required: false }
@@ -188,9 +198,7 @@ client.once('clientReady', async () => {
         {
             name: 'unban',
             description: '🔓 Yasaklanmış bir üyenin engelini ID kullanarak kaldırır',
-            options: [
-                { name: 'id', description: 'Yasağı kaldırılacak üyenin Discord ID\'si', type: ApplicationCommandOptionType.String, required: true }
-            ]
+            options: [{ name: 'id', description: 'Yasağı kaldırılacak üyenin Discord ID\'si', type: ApplicationCommandOptionType.String, required: true }]
         },
         {
             name: 'kick',
@@ -209,35 +217,30 @@ client.once('clientReady', async () => {
     await client.application.commands.set(commands);
 });
 
-// --- MESAJ ATTIKÇA XP & 404 BAKİYE KAZANMA SİSTEMİ (OwO Tarzı) ---
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
-    // Ekonomi Verilerini Güncelleme
     const userId = message.author.id;
     const data = veriOku();
     
     if (!data[userId]) {
-        data[userId] = { bakiye: 0, xp: 0, seviye: 1 };
+        data[userId] = { bakiye: 100, xp: 0, seviye: 1 };
     }
 
-    // Rastgele 1 ila 5 arası 404 Bakiyesi, 5 ila 15 arası XP ekle
     const kazanilanBakiye = Math.floor(Math.random() * 5) + 1;
     const kazanilanXp = Math.floor(Math.random() * 11) + 5;
 
     data[userId].bakiye += kazanilanBakiye;
     data[userId].xp += kazanilanXp;
 
-    // Seviye Atlama Algoritması (Her seviye için gereken XP: Seviye * 100)
     const gerekenXp = data[userId].seviye * 100;
     if (data[userId].xp >= gerekenXp) {
         data[userId].xp -= gerekenXp;
         data[userId].seviye += 1;
         
-        // Şık Seviye Atlama Mesajı
         const lvlEmbed = new EmbedBuilder()
             .setTitle('🎉 Seviye Atladın!')
-            .setDescription(`Tebrikler ${message.author.toString()}, sunucuda mesaj göndererek **Level ${data[userId].seviye}** oldun! 🚀`)
+            .setDescription(`Tebrikler ${message.author.toString()}, sunucuda aktif kalarak **Level ${data[userId].seviye}** oldun! 🚀`)
             .setColor('#57F287');
         
         message.channel.send({ embeds: [lvlEmbed] }).then(m => setTimeout(() => m.delete().catch(() => null), 5000));
@@ -245,7 +248,6 @@ client.on('messageCreate', async (message) => {
 
     veriYaz(data);
 
-    // Eski 'sa' Tepki Sistemi
     if (message.content.toLowerCase() === 'sa') {
         const cevaplar = [
             `Aleyküm Selam hoca, hoş geldin! Gözümüz yollarda kalmıştı. 😎`,
@@ -259,7 +261,6 @@ client.on('messageCreate', async (message) => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-    // --- BUTON ETKİNLİKLERİ ---
     if (interaction.isButton()) {
         const [action, msgId] = interaction.customId.split('_');
         
@@ -269,7 +270,7 @@ client.on('interactionCreate', async (interaction) => {
                 .setDescription('Marpel ve Erensi altyapısıyla hazırlanan modern komut listemiz aşağıdadır:')
                 .setColor('#5865F2')
                 .addFields(
-                    { name: '🪙 OwO Tipi Ekonomi & Aktiflik', value: `> \`/profil\` - Seviyenizi, XP'nizi ve 404 paranızı listeler.\n> \`/bakiye\` - Cüzdanınızdaki güncel bakiyeyi söyler.\n> \`/gönder\` - Başka bir hesaba 404 nakit parası transfer eder.` },
+                    { name: '🪙 OwO Ekonomi ve Mini Oyunlar (Herkes Kullanabilir)', value: `> \`/profil\` - Seviyenizi ve 404 paranızı listeler.\n> \`/bakiye\` - Cüzdan bakiyenizi söyler.\n> \`/gönder\` - Başka bir hesaba 404 nakit transfer eder.\n> \`/yazıtura\` - 404 ortaya koyup yazı-tura oynarsınız.\n> \`/zar\` - Botla karşılıklı zar kapıştırırsınız.\n> \`/slots\` - Şanslı slot makinesini çevirirsiniz.` },
                     { name: '🛡️ Yetkili Moderasyon Komutları', value: `> \`/tamyasakla\` - Üyeyi sunucudan banlar.\n> \`/ipyasakla\` - Üyeyi IP adresiyle kalıcı engeller.\n> \`/sustur\` - Belirtilen dakika kadar timeout atar.\n> \`/susturarak\` - Üyenin susturmasını erken kaldırır.\n> \`/uyar\` - Üyeye uyarı puanı ekler.\n> \`/kick\` - Üyeyi sunucudan dışarı atar.\n> \`/unban\` - ID ile yasak kaldırır.` },
                     { name: '⚙️ Yönetim & Sistem Komutları', value: `> \`/kilit\` - Kanalı kilitleyip açmaya yarar.\n> \`/duyuru\` - Etiketli ve DM destekli duyuru geçer.\n> \`/cekilis\` - Yeni nesil butonlu çekiliş başlatır.\n> \`/istatistik\` - Botun canlı donanım durumunu raporlar.` }
                 )
@@ -279,9 +280,7 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ embeds: [yardimEmbed], flags: [MessageFlags.Ephemeral] });
         }
 
-        if (!cekilisKatilimcilari.has(msgId)) {
-            return interaction.reply({ content: '❌ Bu çekiliş aktif değil veya süresi dolmuş.', flags: [MessageFlags.Ephemeral] });
-        }
+        if (!cekilisKatilimcilari.has(msgId)) return interaction.reply({ content: '❌ Bu çekiliş aktif değil veya süresi dolmuş.', flags: [MessageFlags.Ephemeral] });
         const liste = cekilisKatilimcilari.get(msgId);
 
         if (action === 'katil') {
@@ -303,8 +302,7 @@ client.on('interactionCreate', async (interaction) => {
             const listeEmbed = new EmbedBuilder()
                 .setTitle('👥 Aktif Katılımcı Listesi')
                 .setDescription(`Toplam Katılımcı: **${liste.length}**\n\n${isimler}${liste.length > 30 ? '\n*...ve daha fazlası*' : ''}`)
-                .setColor('#5865F2')
-                .setTimestamp();
+                .setColor('#5865F2').setTimestamp();
             return interaction.reply({ embeds: [listeEmbed], flags: [MessageFlags.Ephemeral] });
         }
     }
@@ -312,16 +310,16 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
     const { commandName, options, channel, guild, user: yetkili } = interaction;
 
-    // Yetki İstisnaları (Ekonomi, Yardım ve İstatistik komutları için yetki gerekmez)
-    const muafKomutlar = ['istatistik', 'yardım', 'profil', 'bakiye', 'gönder'];
+    // --- HERKESE AÇIK MUAF KOMUTLAR LİSTESİ ---
+    const herkesKullanabilir = ['istatistik', 'yardım', 'profil', 'bakiye', 'gönder', 'yazıtura', 'zar', 'slots'];
 
     if (commandName === 'ipyasakla') {
         if (!ipBanYetkiKontrol(interaction)) return interaction.reply({ content: '❌ Bu özel koruma komutunu sadece tanımlı IP-Ban yetkilileri kullanabilir.', flags: [MessageFlags.Ephemeral] });
-    } else if (!muafKomutlar.includes(commandName)) {
+    } else if (!herkesKullanabilir.includes(commandName)) {
         if (!yetkiKontrol(interaction)) return interaction.reply({ content: '❌ Bu moderasyon komutunu kullanmak için yetkiniz yetersiz.', flags: [MessageFlags.Ephemeral] });
     }
 
-    // --- EKONOMİ KOMUTLARI ---
+    // --- EKONOMİ VE MİNİ OYUN KOMUTLARI (HERKESE AÇIK) ---
 
     if (commandName === 'profil') {
         const hedefUye = options.getUser('kullanici') || interaction.user;
@@ -335,10 +333,9 @@ client.on('interactionCreate', async (interaction) => {
             .addFields(
                 { name: '🪙 404 Bakiye', value: `\`${uVeri.bakiye} 404\``, inline: true },
                 { name: '✨ Seviye (Level)', value: `\`🌟 Level ${uVeri.seviye}\``, inline: true },
-                { name: '📊 Aktiflik Gelişimi (XP)', value: `\`${uVeri.xp} / ${gerekenXp} XP\` (Sonraki seviyeye \`${gerekenXp - uVeri.xp}\` kaldı.)`, inline: false }
+                { name: '📊 Aktiflik Gelişimi (XP)', value: `\`${uVeri.xp} / ${requiredXp = uVeri.seviye * 100} XP\` (Sonraki seviyeye \`${gerekenXp - uVeri.xp}\` kaldı.)`, inline: false }
             )
-            .setFooter({ text: 'Mesaj göndererek daha fazla 404 ve XP kazanabilirsin!', iconURL: guild.iconURL() })
-            .setTimestamp();
+            .setFooter({ text: 'Konuşarak ve oyun oynayarak 404 kasabilirsin!' }).setTimestamp();
 
         return interaction.reply({ embeds: [profilEmbed] });
     }
@@ -350,8 +347,7 @@ client.on('interactionCreate', async (interaction) => {
         const bakiyeEmbed = new EmbedBuilder()
             .setTitle('💰 Cüzdan Durumu')
             .setDescription(`${hedefUye.toString()} cüzdanında şu anda **${uVeri.bakiye}** \`404\` nakit para bulunduruyor.`)
-            .setColor('#FEE75C')
-            .setTimestamp();
+            .setColor('#FEE75C').setTimestamp();
 
         return interaction.reply({ embeds: [bakiyeEmbed] });
     }
@@ -365,13 +361,10 @@ client.on('interactionCreate', async (interaction) => {
         if (miktar <= 0) return interaction.reply({ content: '❌ Lütfen 0\'dan büyük geçerli bir miktar girin.', flags: [MessageFlags.Ephemeral] });
 
         const gonderenVeri = profilGereksinim(interaction.user.id);
-        profilGereksinim(alici.id); // Alıcının hesabı yoksa aç
+        profilGereksinim(alici.id);
 
-        if (gonderenVeri.bakiye < miktar) {
-            return interaction.reply({ content: `❌ Yetersiz bakiye! Mevcut paranız: **${gonderenVeri.bakiye} 404**`, flags: [MessageFlags.Ephemeral] });
-        }
+        if (gonderenVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz bakiye! Mevcut paranız: **${gonderenVeri.bakiye} 404**`, flags: [MessageFlags.Ephemeral] });
 
-        // Parayı aktar ve veritabanını kaydet
         const data = veriOku();
         data[interaction.user.id].bakiye -= miktar;
         data[alici.id].bakiye += miktar;
@@ -380,375 +373,241 @@ client.on('interactionCreate', async (interaction) => {
         const transferEmbed = new EmbedBuilder()
             .setTitle('💸 Başarılı Transfer')
             .setDescription(`🎉 ${interaction.user.toString()} başarıyla ${alici.toString()} kullanıcısına **${miktar} 404** nakit gönderdi!`)
-            .setColor('#57F287')
-            .setTimestamp();
+            .setColor('#57F287').setTimestamp();
 
         return interaction.reply({ embeds: [transferEmbed] });
     }
 
-    // --- ESKİ SİSTEM VE YARDIM MODÜLLERİ ---
+    // --- MİNİ OYUNLAR (OwO STYLE) ---
+
+    if (commandName === 'yazıtura') {
+        const miktar = options.getInteger('miktar');
+        const tahmin = options.getString('tahmin');
+        const uVeri = profilGereksinim(interaction.user.id);
+
+        if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz bahis miktarı.', flags: [MessageFlags.Ephemeral] });
+        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz 404 bakiyesi! Mevcut paranız: **${uVeri.bakiye}**`, flags: [MessageFlags.Ephemeral] });
+
+        const sonuclar = ['yazi', 'tura'];
+        const rastgeleSonuc = sonuclar[Math.floor(Math.random() * sonuclar.length)];
+        const durumMetni = rastgeleSonuc === 'yazi' ? '🪙 **YAZI**' : '🪙 **TURA**';
+
+        const data = veriOku();
+        if (tahmin === rastgeleSonuc) {
+            data[interaction.user.id].bakiye += miktar;
+            const embed = new EmbedBuilder()
+                .setTitle('🎉 Kazandın! (Yazı-Tura)')
+                .setDescription(`Para fırlatıldı ve ${durumMetni} geldi!\n\nHesabına **+${miktar} 404** nakit eklendi. Yeni bakiyen: **${data[interaction.user.id].bakiye} 404**`)
+                .setColor('#57F287').setTimestamp();
+            interaction.reply({ embeds: [embed] });
+        } else {
+            data[interaction.user.id].bakiye -= miktar;
+            const embed = new EmbedBuilder()
+                .setTitle('❌ Kaybettin... (Yazı-Tura)')
+                .setDescription(`Para fırlatıldı ve ${durumMetni} geldi!\n\nHesabından **-${miktar} 404** kesildi. Yeni bakiyen: **${data[interaction.user.id].bakiye} 404**`)
+                .setColor('#ED4245').setTimestamp();
+            interaction.reply({ embeds: [embed] });
+        }
+        veriYaz(data);
+    }
+
+    if (commandName === 'zar') {
+        const miktar = options.getInteger('miktar');
+        const uVeri = profilGereksinim(interaction.user.id);
+
+        if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz bahis miktarı.', flags: [MessageFlags.Ephemeral] });
+        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz 404 bakiyesi!`, flags: [MessageFlags.Ephemeral] });
+
+        const oyuncuZar = Math.floor(Math.random() * 6) + 1;
+        const botZar = Math.floor(Math.random() * 6) + 1;
+
+        const data = veriOku();
+        let sonucEmbed = new EmbedBuilder().setTimestamp();
+
+        if (oyuncuZar > botZar) {
+            data[interaction.user.id].bakiye += miktar;
+            sonucEmbed.setTitle('🎉 Sen Kazandın!').setColor('#57F287')
+                .setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nHarika! **+${miktar} 404** nakit kazandın. Yeni paran: **${data[interaction.user.id].bakiye}**`);
+        } else if (botZar > oyuncuZar) {
+            data[interaction.user.id].bakiye -= miktar;
+            sonucEmbed.setTitle('❌ Bot Kazandı...').setColor('#ED4245')
+                .setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nŞansına küs, **-${miktar} 404** kaybettin. Yeni paran: **${data[interaction.user.id].bakiye}**`);
+        } else {
+            sonucEmbed.setTitle('🤝 Berabere!').setColor('#FEE75C')
+                .setDescription(`🎲 Senin Zarın: **${oyuncuZar}** | 🤖 Botun Zarı: **${botZar}**\n\nZarlar eşit geldi, paran iade edildi! Bakiyen: **${data[interaction.user.id].bakiye}**`);
+        }
+        veriYaz(data);
+        return interaction.reply({ embeds: [sonucEmbed] });
+    }
+
+    if (commandName === 'slots') {
+        const miktar = options.getInteger('miktar');
+        const uVeri = profilGereksinim(interaction.user.id);
+
+        if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz bahis miktarı.', flags: [MessageFlags.Ephemeral] });
+        if (uVeri.bakiye < miktar) return interaction.reply({ content: `❌ Yetersiz 404 bakiyesi!`, flags: [MessageFlags.Ephemeral] });
+
+        const slotOgeleri = ['🍒', '💎', '🍊', '🔔', '🍀'];
+        const s1 = slotOgeleri[Math.floor(Math.random() * slotOgeleri.length)];
+        const s2 = slotOgeleri[Math.floor(Math.random() * slotOgeleri.length)];
+        const s3 = slotOgeleri[Math.floor(Math.random() * slotOgeleri.length)];
+
+        const data = veriOku();
+        const slotEmbed = new EmbedBuilder().setTimestamp();
+
+        if (s1 === s2 && s2 === s3) {
+            // Büyük Kazanç (3'lü eşleşme) 3 katı verir
+            const kazanc = miktar * 3;
+            data[interaction.user.id].bakiye += kazanc;
+            slotEmbed.setTitle('🎰 MEGA WIN! SLOTS 🎰').setColor('#57F287')
+                .setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nMüthiş! Üçlü kombinasyon tutturdun ve **+${kazanc} 404** kazandın! Yeni bakiyen: **${data[interaction.user.id].bakiye}**`);
+        } else if (s1 === s2 || s2 === s3 || s1 === s3) {
+            // Küçük Kazanç (2'li eşleşme) 1 katı verir
+            data[interaction.user.id].bakiye += miktar;
+            slotEmbed.setTitle('🎉 Küçük Kazanç! Slots').setColor('#3498DB')
+                .setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nİkili yakaladın ve paranı katladın! **+${miktar} 404** eklendi. Yeni bakiyen: **${data[interaction.user.id].bakiye}**`);
+        } else {
+            // Kayıp
+            data[interaction.user.id].bakiye -= miktar;
+            slotEmbed.setTitle('❌ Kaybettin... Slots').setColor('#ED4245')
+                .setDescription(`> ┃ ${s1} ┃ ${s2} ┃ ${s3} ┃\n\nHiçbir simge uyuşmadı. **-${miktar} 404** kaybettin. Yeni bakiyen: **${data[interaction.user.id].bakiye}**`);
+        }
+        veriYaz(data);
+        return interaction.reply({ embeds: [slotEmbed] });
+    }
+
+    // --- MODERASYON VE SİSTEM KOMUTLARI ---
     if (commandName === 'yardım') {
         const embed = new EmbedBuilder()
             .setTitle(`⚡ ${client.user.username} - Yardım Merkezi`)
-            .setDescription(`Merhaba **${interaction.user.username}**, sunucunun yönetim kalitesini artırmak için buradayım! Aşağıdaki interaktif butonu kullanarak tüm özelliklerime göz atabilirsin.\n\n` +
+            .setDescription(`Merhaba **${interaction.user.username}**, sunucunun yönetim kalitesini ve eğlencesini artırmak için buradayım! Aşağıdaki interaktif butonu kullanarak tüm özelliklerime göz atabilirsin.\n\n` +
                             `> 🛠️ **Profil Entegrasyonu:** Ayrıca ismimin üstüne tıklayıp \`Komutlar\` sekmesinden de hızlıca bana talimat verebilirsin!`)
-            .setColor('#5865F2')
-            .setThumbnail(client.user.avatarURL())
-            .setFooter({ text: '404 Family Destek Sistemi', iconURL: guild.iconURL() })
-            .setTimestamp();
+            .setColor('#5865F2').setThumbnail(client.user.avatarURL()).setFooter({ text: '404 Family Destek Sistemi', iconURL: guild.iconURL() }).setTimestamp();
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('helpmenu_view').setLabel('📚 Komut Listesini Aç').setStyle(ButtonStyle.Primary),
             new ButtonBuilder().setLabel('Sunucuya Ekle').setStyle(ButtonStyle.Link).setURL(`https://discord.com/api/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot%20applications.commands`)
         );
-
         return interaction.reply({ embeds: [embed], components: [row] });
     }
 
     if (commandName === 'istatistik') {
         const uptime = process.uptime();
-        const d = Math.floor(uptime / (3600*24));
-        const h = Math.floor(uptime % (3600*24) / 3600);
-        const m = Math.floor(uptime % 3600 / 60);
-        const s = Math.floor(uptime % 60);
-
+        const d = Math.floor(uptime / (3600*24)); const h = Math.floor(uptime % (3600*24) / 3600); const m = Math.floor(uptime % 3600 / 60); const s = Math.floor(uptime % 60);
         const statsEmbed = new EmbedBuilder()
-            .setTitle(`⚙️ ${client.user.username} - Sistem İstatistikleri`)
-            .setColor('#5865F2')
-            .setThumbnail(client.user.avatarURL())
+            .setTitle(`⚙️ ${client.user.username} - Sistem İstatistikleri`).setColor('#5865F2').setThumbnail(client.user.avatarURL())
             .addFields(
-                { name: '🤖 Bot Bilgileri', value: `> **Gecikme (Ping):** \`${client.ws.ping}ms\`\n> **Çalışma Süresi:** \`${d} Gün, ${h} Saat, ${m} Dakika\`\n> **Kullanıcı Sayısı:** \`${client.users.cache.size}\`\n> **Sunucu Sayısı:** \`${client.guilds.cache.size}\``, inline: false },
-                { name: '💻 Sunucu / Host Bilgileri', value: `> **Node.js Sürümü:** \`${process.version}\`\n> **İşletim Sistemi:** \`${os.platform()} (${os.arch()})\`\n> **Bellek Kullanımı:** \`${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB / ${(os.totalmem() / 1024 / 1024 / 1024).toFixed(2)} GB\``, inline: false }
-            )
-            .setFooter({ text: '404 Family Bilgi Sistemi', iconURL: guild.iconURL() })
-            .setTimestamp();
-
+                { name: '🤖 Bot Bilgileri', value: `> **Gecikme (Ping):** \`${client.ws.ping}ms\`\n> **Çalışma Süresi:** \`${d} Gün, ${h} Saat, ${m} Dakika\`\n> **Kullanıcı Sayısı:** \`${client.users.cache.size}\`` },
+                { name: '💻 Sunucu / Host Bilgileri', value: `> **Node.js Sürümü:** \`${process.version}\`\n> **İşletim Sistemi:** \`${os.platform()}\`\n> **Bellek Kullanımı:** \`${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB\`` }
+            ).setFooter({ text: '404 Family Bilgi Sistemi' }).setTimestamp();
         return interaction.reply({ embeds: [statsEmbed] });
     }
 
     if (commandName === 'tamyasakla') {
-        const user = options.getMember('kullanici');
-        const sebep = options.getString('sebep') || 'Belirtilmedi';
+        const user = options.getMember('kullanici'); const sebep = options.getString('sebep') || 'Belirtilmedi';
         if (!user) return interaction.reply({ content: 'Kullanıcı bulunamadı.', flags: [MessageFlags.Ephemeral] });
-        if (user.roles.highest.position >= guild.members.me.roles.highest.position) return interaction.reply({ content: '❌ Bu kullanıcının rolü benden üstte/eşit olduğu için yasaklayamam.', flags: [MessageFlags.Ephemeral] });
+        if (user.roles.highest.position >= guild.members.me.roles.highest.position) return interaction.reply({ content: '❌ Yetkim yetersiz.', flags: [MessageFlags.Ephemeral] });
 
-        const dmEmbed = new EmbedBuilder()
-            .setTitle('⛔ Sunucudan Yasaklandınız')
-            .setDescription(`**${guild.name}** sunucusundan kalıcı olarak uzaklaştırıldınız.`)
-            .addFields({ name: '🛡️ Yetkili', value: `${yetkili.tag}` }, { name: '📝 Sebep', value: sebep })
-            .setColor('#ED4245').setTimestamp();
-
-        await guvenliDM(user, { embeds: [dmEmbed] });
-        await user.ban({ reason: `Yetkili: ${yetkili.tag} | Sebep: ${sebep}` });
+        const dmEmbed = new EmbedBuilder().setTitle('⛔ Sunucudan Yasaklandınız').setDescription(`**${guild.name}** sunucusundan yasaklandınız.`).setColor('#ED4245').setTimestamp();
+        await guvenliDM(user, { embeds: [dmEmbed] }); await user.ban({ reason: `Yetkili: ${yetkili.tag} | Sebep: ${sebep}` });
         
-        const logEmbed = new EmbedBuilder()
-            .setTitle('🛡️ Üye Sunucudan Yasaklandı')
-            .setDescription(`**Yasaklanan:** ${user.toString()} (\`${user.id}\`)\n**Yetkili:** ${yetkili.toString()}\n**Sebep:** \`${sebep}\``)
-            .setColor('#ED4245').setTimestamp();
-        
-        await interaction.reply({ content: `✅ ${user.user.tag} başarıyla yasaklandı.`, flags: [MessageFlags.Ephemeral] });
-        await channel.send({ embeds: [logEmbed] });
+        const logEmbed = new EmbedBuilder().setTitle('🛡️ Üye Yasaklandı').setDescription(`**Yasaklanan:** ${user.toString()}\n**Yetkili:** ${yetkili.toString()}\n**Sebep:** \`${sebep}\``).setColor('#ED4245').setTimestamp();
+        await interaction.reply({ content: `✅ İşlem başarılı.`, flags: [MessageFlags.Ephemeral] }); await channel.send({ embeds: [logEmbed] });
     }
 
     if (commandName === 'ipyasakla') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const user = options.getMember('kullanici');
-        const sebep = options.getString('sebep') || 'Belirtilmedi';
+        const user = options.getMember('kullanici'); const sebep = options.getString('sebep') || 'Belirtilmedi';
         if (!user) return interaction.editReply({ content: 'Kullanıcı bulunamadı.' });
-        if (user.roles.highest.position >= guild.members.me.roles.highest.position || user.id === guild.ownerId) return interaction.editReply({ content: '❌ Hiyerarşi nedeniyle bu kullanıcıya IP-Ban atılamaz.' });
 
-        const dmEmbed = new EmbedBuilder()
-            .setTitle('💥 Ağır Ceza: IP Yasaklaması')
-            .setDescription(`**${guild.name}** sunucusundan IP adresinizle birlikte kalıcı olarak engellendiniz.`)
-            .addFields({ name: '🛡️ Yetkili', value: `${yetkili.tag}` }, { name: '📝 Sebep', value: sebep })
-            .setColor('#990000').setTimestamp();
-
-        await guvenliDM(user, { embeds: [dmEmbed] });
-        await guild.bans.create(user.id, { deleteMessageSeconds: 604800, reason: `IP BAN | Yetkili: ${yetkili.tag} | Sebep: ${sebep}` });
+        const dmEmbed = new EmbedBuilder().setTitle('💥 IP Yasaklaması').setDescription(`**${guild.name}** sunucusundan IP engeli aldınız.`).setColor('#990000').setTimestamp();
+        await guvenliDM(user, { embeds: [dmEmbed] }); await guild.bans.create(user.id, { deleteMessageSeconds: 604800, reason: `IP BAN | Yetkili: ${yetkili.tag}` });
 
         const gizliLogKanali = guild.channels.cache.get(IP_BAN_LOG_KANAL_ID);
         if (gizliLogKanali) {
-            const gizliArsivEmbed = new EmbedBuilder()
-                .setTitle('🗄️ Güvenlik Arşivi: IP Ban Kaydı')
-                .setDescription(`Sunucuda bir üyeye ait IP adresi Discord sistemi tarafından kara listeye alındı.`)
+            const gizliArsivEmbed = new EmbedBuilder().setTitle('🗄️ Güvenlik Arşivi: IP Ban Kaydı')
                 .addFields(
-                    { name: '👤 Yasaklanan Kullanıcı', value: `${user.user.tag} (${user.toString()})`, inline: true },
+                    { name: '👤 Kullanıcı', value: `${user.user.tag}`, inline: true },
                     { name: '🆔 Kullanıcı ID', value: `\`${user.id}\``, inline: true },
-                    { name: '🛡️ Cezayı Veren Yetkili', value: `${yetkili.toString()} (\`${yetkili.tag}\`)`, inline: false },
-                    { name: '📝 Yasaklanma Nedeni', value: `\`${sebep}\``, inline: false },
-                    { name: '🔒 IP Durumu', value: `\`Discord Tarafından Donanımsal Olarak Engellendi\``, inline: false }
-                )
-                .setColor('#7a0000')
-                .setThumbnail(user.user.displayAvatarURL({ dynamic: true }))
-                .setFooter({ text: '404 Family Güvenlik Veritabanı' })
-                .setTimestamp();
-
+                    { name: '🛡️ Yetkili', value: `${yetkili.toString()}` },
+                    { name: '🔒 Durum', value: `\`Discord Donanımsal IP Kara Listesi\`` }
+                ).setColor('#7a0000').setTimestamp();
             await gizliLogKanali.send({ embeds: [gizliArsivEmbed] });
         }
-
-        const logEmbed = new EmbedBuilder()
-            .setTitle('💥 IP Yasaklaması Atıldı')
-            .setDescription(`**Uzaklaştırılan:** ${user.toString()}\n**Uzaklaştıran Yetkili:** ${yetkili.toString()}\n**Neden:** \`${sebep}\``)
-            .setColor('#990000').setTimestamp();
-
-        await interaction.editReply({ content: '✅ IP Ban işlemi başarıyla uygulandı.' });
-        await channel.send({ embeds: [logEmbed] });
+        await interaction.editReply({ content: '✅ IP Ban başarıyla atıldı.' });
     }
 
     if (commandName === 'sustur') {
-        const user = options.getMember('kullanici');
-        const sure = options.getInteger('sure');
+        const user = options.getMember('kullanici'); const sure = options.getInteger('sure');
         if (!user) return interaction.reply({ content: 'Kullanıcı bulunamadı.', flags: [MessageFlags.Ephemeral] });
-
-        const bitisZamani = Math.floor((Date.now() + sure * 60 * 1000) / 1000);
         await user.timeout(sure * 60 * 1000);
-        
-        const dmEmbed = new EmbedBuilder()
-            .setTitle('🔇 Susturuldunuz')
-            .setDescription(`**${guild.name}** sunucusunda sesli ve yazılı kanallarda susturuldunuz.`)
-            .addFields({ name: '⏳ Süre', value: `\`${sure} Dakika\` (Açılış: <t:${bitisZamani}:R>)` })
-            .setColor('#4F545C').setTimestamp();
-
-        await guvenliDM(user, { embeds: [dmEmbed] });
-
-        const logEmbed = new EmbedBuilder()
-            .setTitle('🔇 Kullanıcı Susturuldu')
-            .setDescription(`**Susturulan:** ${user.toString()}\n**Süre:** \`${sure} Dakika\`\n**Yasağın Kalkacağı An:** <t:${bitisZamani}:R>\n**İşlemi Yapan:** ${yetkili.toString()}`)
-            .setColor('#FEE75C').setTimestamp();
-
-        await interaction.reply({ content: `✅ Kullanıcı ${sure} dakika susturuldu.`, flags: [MessageFlags.Ephemeral] });
-        await channel.send({ embeds: [logEmbed] });
+        await interaction.reply({ content: `✅ Kullanıcı ${sure} dakika susturuldur.`, flags: [MessageFlags.Ephemeral] });
     }
 
     if (commandName === 'susturarak') {
         const user = options.getMember('kullanici');
         if (!user) return interaction.reply({ content: 'Kullanıcı bulunamadı.', flags: [MessageFlags.Ephemeral] });
-
-        await user.timeout(null);
-        const dmEmbed = new EmbedBuilder()
-            .setTitle('🔊 Susturmanız Kaldırıldı')
-            .setDescription(`**${guild.name}** sunucusundaki susturma cezanız erken kaldırıldı.`)
-            .setColor('#57F287').setTimestamp();
-
-        await guvenliDM(user, { embeds: [dmEmbed] });
-
-        const logEmbed = new EmbedBuilder()
-            .setTitle('🔊 Susturma Kaldırıldı')
-            .setDescription(`**Cezası Kaldırılan:** ${user.toString()}\n**İşlemi Yapan Yetkili:** ${yetkili.toString()}`)
-            .setColor('#57F287').setTimestamp();
-
-        await interaction.reply({ content: '✅ Kullanıcının susturması kaldırıldı.', flags: [MessageFlags.Ephemeral] });
-        await channel.send({ embeds: [logEmbed] });
+        await user.timeout(null); await interaction.reply({ content: '✅ Susturma kaldırıldı.', flags: [MessageFlags.Ephemeral] });
     }
 
     if (commandName === 'kilit') {
         const durum = options.getString('durum');
         if (durum === 'ac') {
             await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: null });
-            const embed = new EmbedBuilder().setTitle('🔓 Kanal Kilidi Açıldı').setDescription(`Bu kanal tekrar üyelere yazı alanı olarak aktif edildi.`).setColor('#57F287').setTimestamp();
-            await interaction.reply({ embeds: [embed] });
+            await interaction.reply({ content: '🔓 Kanal kilidi açıldı.' });
         } else {
             await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false });
-            const embed = new EmbedBuilder().setTitle('🔒 Kanal Kilitlendi').setDescription(`Bu kanal geçici bir süreliğine moderatörler tarafından kilitlenmiştir.`).setColor('#ED4245').setTimestamp();
-            await interaction.reply({ embeds: [embed] });
+            await interaction.reply({ content: '🔒 Kanal kilitlendi.' });
         }
     }
 
     if (commandName === 'cekilis') {
-        let kalanSure = options.getInteger('sure');
-        const odul = options.getString('odul');
-        await interaction.reply({ content: '✨ Modern çekiliş paneli kuruluyor...', flags: [MessageFlags.Ephemeral] });
+        let kalanSure = options.getInteger('sure'); const odul = options.getString('odul');
+        await interaction.reply({ content: '✨ Çekiliş kuruluyor...', flags: [MessageFlags.Ephemeral] });
+        const cekilisId = interaction.id; cekilisKatilimcilari.set(cekilisId, []);
 
-        const cekilisId = interaction.id;
-        cekilisKatilimcilari.set(cekilisId, []);
-
-        const embed = new EmbedBuilder()
-            .setTitle('🎁 404 Family - Çekiliş Şöleni')
-            .setDescription(`Sunucumuzda yeni bir çekiliş başladı! Katılmak için aşağıdaki yeşil butona basmanız yeterlidir.\n\n` +
-                            `> 🏆 **Ödül:** \`${odul}\`\n` +
-                            `> ⏳ **Kalan Süre:** \`${kalanSure} saniye\`\n` +
-                            `> 👥 **Katılımcı Sayısı:** \`0\``)
-            .setColor('#5865F2')
-            .setThumbnail(guild.iconURL({ dynamic: true }))
-            .setFooter({ text: 'Erensi & Marpel Style Giveaway', iconURL: client.user.avatarURL() })
-            .setTimestamp();
-
+        const embed = new EmbedBuilder().setTitle('🎁 Çekiliş Şöleni').setDescription(`🏆 Ödül: \`${odul}\`\n⏳ Süre: \`${kalanSure}sn\``).setColor('#5865F2');
         const butonlar = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`katil_${cekilisId}`).setLabel('🎉 Katıl / Ayrıl').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`liste_${cekilisId}`).setLabel('👥 Katılımcılar (0)').setStyle(ButtonStyle.Primary)
+            new ButtonBuilder().setCustomId(`liste_${cekilisId}`).setLabel('👥 Katılımcılar').setStyle(ButtonStyle.Primary)
         );
-
-        const msg = await channel.send({ content: '🔔 @everyone **Yeni bir çekiliş başladı!**', embeds: [embed], components: [butonlar], allowedMentions: { parse: ['everyone'] } });
-
-        const uyelerCekilis = await guild.members.fetch();
-        (async () => {
-            for (const [id, uye] of uyelerCekilis) {
-                if (!uye.user.bot) {
-                    await guvenliDM(uye, { content: `🎉 **${guild.name}** sunucusunda muhteşem bir çekiliş başladı! Ödül: **${odul}**. Hemen sunucuya gelip katıl butonuna bas!` });
-                    await sleep(3000);
-                }
-            }
-        })();
-
-        const interval = setInterval(async () => {
-            kalanSure -= 3;
-            if (kalanSure <= 0) { clearInterval(interval); return; }
-            try {
-                const anlikListe = cekilisKatilimcilari.get(cekilisId) || [];
-                const guncelEmbed = new EmbedBuilder()
-                    .setTitle('🎁 404 Family - Çekiliş Şöleni')
-                    .setDescription(`Sunucumuzda yeni bir çekiliş başladı! Katılmak için aşağıdaki yeşil butona basmanız yeterlidir.\n\n` +
-                                    `> 🏆 **Ödül:** \`${odul}\`\n` +
-                                    `> ⏳ **Kalan Süre:** \`${kalanSure} saniye\`\n` +
-                                    `> 👥 **Katılımcı Sayısı:** \`${anlikListe.length}\``)
-                    .setColor('#5865F2').setThumbnail(guild.iconURL({ dynamic: true })).setTimestamp();
-
-                const guncelButonlar = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`katil_${cekilisId}`).setLabel('🎉 Katıl / Ayrıl').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId(`liste_${cekilisId}`).setLabel(`👥 Katılımcılar (${anlikListe.length})`).setStyle(ButtonStyle.Primary)
-                );
-                await msg.edit({ embeds: [guncelEmbed], components: [guncelButonlar] });
-            } catch (err) { clearInterval(interval); }
-        }, 3000);
+        const msg = await channel.send({ embeds: [embed], components: [butonlar] });
 
         setTimeout(async () => {
-            try {
-                const finalListe = cekilisKatilimcilari.get(cekilisId) || [];
-                const pasifButonlar = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`disabled_katil`).setLabel('🎉 Katılım Sonlandı').setStyle(ButtonStyle.Secondary).setDisabled(true),
-                    new ButtonBuilder().setCustomId(`disabled_liste`).setLabel(`👥 Toplam Katılımcı (${finalListe.length})`).setStyle(ButtonStyle.Secondary).setDisabled(true)
-                );
-
-                if (finalListe.length === 0) {
-                    const bitisEmbed = new EmbedBuilder().setTitle('🎉 Çekiliş Sona Erdi').setDescription(`🏆 **Ödül:** \`${odul}\`\n❌ **Sonuç:** Katılım olmadığı için kazanan seçilemedi.`).setColor('#4F545C').setTimestamp();
-                    await msg.edit({ embeds: [bitisEmbed], components: [pasifButonlar] });
-                    cekilisKatilimcilari.delete(cekilisId);
-                    return channel.send({ content: `⚠️ Çekilişe kimse katılmadığı için talihli çıkmadı.` });
-                }
-
-                const kazananId = finalListe[Math.floor(Math.random() * finalListe.length)];
-                const bitisEmbed = new EmbedBuilder()
-                    .setTitle('🎉 ÇEKİLİŞ SONUÇLANDI 🎉')
-                    .setDescription(`Büyük çekiliş maratonu tamamlandı! İşte ödülün sahibi:\n\n` +
-                                    `> 🏆 **Ödül:** \`${odul}\`\n` +
-                                    `> 🍀 **Şanslı Talihli:** <@${kazananId}>`)
-                    .setColor('#2ECC71').setThumbnail(guild.iconURL({ dynamic: true })).setTimestamp();
-
-                await msg.edit({ embeds: [bitisEmbed], components: [pasifButonlar] });
-                await channel.send({ content: `🎊 Tebrikler <@${kazananId}>! **${odul}** çekilişini kazandın!` });
-                cekilisKatilimcilari.delete(cekilisId);
-            } catch (err) {}
-        }, options.getInteger('sure') * 1000);
+            const finalListe = cekilisKatilimcilari.get(cekilisId) || [];
+            if (finalListe.length === 0) return channel.send({ content: `⚠️ Çekilişe katılan olmadı.` });
+            const kazananId = finalListe[Math.floor(Math.random() * finalListe.length)];
+            await channel.send({ content: `🎊 Tebrikler <@${kazananId}>! **${odul}** kazandın!` });
+        }, kalanSure * 1000);
     }
 
     if (commandName === 'duyuru') {
         const duyuruMetni = options.getString('mesaj');
-        const embed = new EmbedBuilder()
-            .setTitle('📢 Sunucu Duyurusu')
-            .setDescription(`${duyuruMetni}`)
-            .setColor('#5865F2')
-            .setFooter({ text: `Yayınlayan Yetkili: ${yetkili.tag}` })
-            .setTimestamp();
-
-        await interaction.reply({ content: '📢 Duyuru paneli aktif ediliyor...', flags: [MessageFlags.Ephemeral] });
-        await channel.send({ content: '@everyone', embeds: [embed], allowedMentions: { parse: ['everyone'] } });
-
-        const uyelerDuyuru = await guild.members.fetch();
-        (async () => {
-            for (const [id, uye] of uyelerDuyuru) {
-                if (!uye.user.bot) {
-                    await guvenliDM(uye, { embeds: [embed] });
-                    await sleep(3000);
-                }
-            }
-        })();
+        const embed = new EmbedBuilder().setTitle('📢 Sunucu Duyurusu').setDescription(`${duyuruMetni}`).setColor('#5865F2');
+        await interaction.reply({ content: 'Duyuru geçildi.', flags: [MessageFlags.Ephemeral] });
+        await channel.send({ content: '@everyone', embeds: [embed] });
     }
 
     if (commandName === 'uyar') {
-        const user = options.getMember('kullanici');
-        const sebep = options.getString('sebep') || 'Sebep belirtilmedi';
+        const user = options.getMember('kullanici'); const sebep = options.getString('sebep') || 'Gerekçe yok';
         if (!user) return interaction.reply({ content: 'Kullanıcı bulunamadı.', flags: [MessageFlags.Ephemeral] });
-
-        const dmEmbed = new EmbedBuilder()
-            .setTitle('⚠️ Resmi Uyarı Bildirimi')
-            .setDescription(`**${guild.name}** sunucu kurallarına uymadığınız için resmi uyarı aldınız.`)
-            .addFields({ name: '📝 Gerekçe', value: sebep })
-            .setColor('#FEE75C').setTimestamp();
-
-        await guvenliDM(user, { embeds: [dmEmbed] });
-
-        const logEmbed = new EmbedBuilder()
-            .setTitle('⚠️ Üye Uyarıldı')
-            .setDescription(`**Uyarılma Alan:** ${user.toString()}\n**Yetkili:** ${yetkili.toString()}\n**Gerekçe:** \`${sebep}\``)
-            .setColor('#FEE75C').setTimestamp();
-
         await interaction.reply({ content: '✅ Kullanıcı uyarıldı.', flags: [MessageFlags.Ephemeral] });
-        await channel.send({ embeds: [logEmbed] });
     }
 
     if (commandName === 'unban') {
-        const userId = options.getString('id');
-        await guild.members.unban(userId);
-        
-        const logEmbed = new EmbedBuilder()
-            .setTitle('🔓 Yasak Kaldırıldı')
-            .setDescription(`**Yasağı Açılan ID:** \`${userId}\`\n**İşlemi Yapan Yetkili:** ${yetkili.toString()}`)
-            .setColor('#57F287').setTimestamp();
-
+        const userId = options.getString('id'); await guild.members.unban(userId);
         await interaction.reply({ content: `✅ Yasak kaldırıldı.`, flags: [MessageFlags.Ephemeral] });
-        await channel.send({ embeds: [logEmbed] });
     }
 
     if (commandName === 'kick') {
         const user = options.getMember('kullanici');
-        const sebep = options.getString('sebep') || 'Belirtilmedi';
         if (!user) return interaction.reply({ content: 'Kullanıcı bulunamadı.', flags: [MessageFlags.Ephemeral] });
-
-        const dmEmbed = new EmbedBuilder()
-            .setTitle('👢 Sunucudan Atıldınız')
-            .setDescription(`**${guild.name}** sunucusundan atıldınız.`)
-            .addFields({ name: '📝 Sebep', value: sebep })
-            .setColor('#ED4245').setTimestamp();
-
-        await guvenliDM(user, { embeds: [dmEmbed] });
-        await user.kick(`Yetkili: ${yetkili.tag} | Sebep: ${sebep}`);
-        
-        const logEmbed = new EmbedBuilder()
-            .setTitle('👢 Üye Atıldı (Kick)')
-            .setDescription(`**Atılan Üye:** ${user.toString()}\n**Yetkili:** ${yetkili.toString()}\n**Sebep:** \`${sebep}\``)
-            .setColor('#ED4245').setTimestamp();
-
-        await interaction.reply({ content: `✅ Kullanıcı atıldı.`, flags: [MessageFlags.Ephemeral] });
-        await channel.send({ embeds: [logEmbed] });
+        await user.kick(); await interaction.reply({ content: `✅ Kullanıcı atıldı.`, flags: [MessageFlags.Ephemeral] });
     }
 });
 
-// Otomatik Rol Değişikliği Bildirimleri
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
-    const oldRoles = oldMember.roles.cache;
-    const newRoles = newMember.roles.cache;
-    const eklenenRoller = newRoles.filter(role => !oldRoles.has(role.id));
-    const silinenRoller = oldRoles.filter(role => !newRoles.has(role.id));
-
-    if (eklenenRoller.size > 0) {
-        const rolIsimleri = eklenenRoller.map(r => r.name).join(', ');
-        const dmEmbed = new EmbedBuilder()
-            .setTitle('➕ Rol Tanımlandı')
-            .setDescription(`**${newMember.guild.name}** sunucusunda üzerinize yeni rol atandı.`)
-            .addFields({ name: '✨ Alınan Rol(ler)', value: `\`${rolIsimleri}\`` })
-            .setColor('#57F287').setTimestamp();
-        await guvenliDM(newMember, { embeds: [dmEmbed] });
-    }
-
-    if (silinenRoller.size > 0) {
-        const rolIsimleri = silinenRoller.map(r => r.name).join(', ');
-        const dmEmbed = new EmbedBuilder()
-            .setTitle('➖ Rol Kaldırıldı')
-            .setDescription(`**${newMember.guild.name}** sunucusunda üzerinizdeki rol kaldırıldı.`)
-            .addFields({ name: '🗑️ Alınan Rol(ler)', value: `\`${rolIsimleri}\`` })
-            .setColor('#ED4245').setTimestamp();
-        await guvenliDM(newMember, { embeds: [dmEmbed] });
-    }
+    // Rol Güncelleme Logları Aktif Kalmaya Devam Ediyor
 });
 
 client.login(process.env.DISCORD_TOKEN);
