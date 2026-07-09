@@ -1,7 +1,7 @@
 const { 
     Client, 
     GatewayIntentBits, 
-    ApplicationCommandType, 
+    Partials,
     ApplicationCommandOptionType, 
     PermissionsBitField, 
     EmbedBuilder, 
@@ -15,6 +15,7 @@ require('dotenv').config();
 const os = require('os');
 const fs = require('fs');
 
+// 🛠️ DM ve Rol Eventlerinin Kesin Çalışması İçin Gelişmiş Intent ve Partial Yapısı
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -23,11 +24,12 @@ const client = new Client({
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildModeration,
         GatewayIntentBits.GuildPresences
-    ]
+    ],
+    partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.GuildMember, Partials.User]
 });
 
 // ==========================================
-// 🔥 OWO TARZI GELİŞMİŞ AYARLAR MENÜSÜ 🔥
+// 🔥 Gelişmiş Ayarlar Menüsü 🔥
 // ==========================================
 const YETKILI_ROLLER = ['1519479137360674868', '1499692023496572968']; 
 const IP_BAN_YETKILI_ROL = '1519479137360674868'; 
@@ -45,10 +47,28 @@ if (!fs.existsSync(dbDosyasi)) {
 function veriOku() { return JSON.parse(fs.readFileSync(dbDosyasi, 'utf8')); }
 function veriYaz(data) { fs.writeFileSync(dbDosyasi, JSON.stringify(data, null, 4)); }
 
+// Gelişmiş Sicil Destekli Profil Oluşturucu
 function profilGereksinim(userId) {
     const data = veriOku();
     if (!data[userId]) {
-        data[userId] = { bakiye: 100, banka: 0, xp: 0, seviye: 1, gunlukZaman: 0, uyariSayisi: 0 }; 
+        data[userId] = { 
+            bakiye: 100, 
+            banka: 0, 
+            xp: 0, 
+            seviye: 1, 
+            gunlukZaman: 0, 
+            uyariSayisi: 0,
+            sicil: {
+                tutanaklar: [], // { sebep: "", yetkili: "", tarih: "" }
+                muteler: [],    // { sure: "", sebep: "", yetkili: "", tarih: "" }
+                banlar: []      // { tür: "Ban/Kick", sebep: "", yetkili: "", tarih: "" }
+            }
+        }; 
+        veriYaz(data);
+    }
+    // Eğer eski veritabanı varsa ve sicil objesi yoksa dinamik olarak ekle
+    if (!data[userId].sicil) {
+        data[userId].sicil = { tutanaklar: [], muteler: [], banlar: [] };
         veriYaz(data);
     }
     return data[userId];
@@ -78,6 +98,10 @@ function cooldownKontrol(userId) {
 // 🛡️ DİNAMİK ROL GÜNCELLEME (DM BİLDİRİMİ EVENTİ)
 // ==========================================
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
+    // Eski veya yeni hal cache'de yoksa sunucudan çekmesini zorunlu kılıyoruz
+    if (oldMember.partial) { try { await oldMember.fetch(); } catch (e) { return; } }
+    if (newMember.partial) { try { await newMember.fetch(); } catch (e) { return; } }
+
     // ➕ Rol Eklendiğinde Tetiklenen Kısım
     const eklenenRoller = newMember.roles.cache.filter(role => !oldMember.roles.cache.has(role.id));
     if (eklenenRoller.size > 0) {
@@ -94,7 +118,7 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
                 )
                 .setFooter({ text: `${newMember.guild.name} • Ayrıcalık Yönetim Sistemi` })
                 .setTimestamp();
-            try { await newMember.send({ embeds: [rolEkleEmbed] }); } catch(e) {}
+            try { await newMember.send({ embeds: [rolEkleEmbed] }); } catch(e) { console.log(`[DM Hata] ${newMember.user.tag} kullanıcısına rol ekleme DM'i kapalı.`); }
         });
     }
 
@@ -114,7 +138,7 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
                 )
                 .setFooter({ text: `${newMember.guild.name} • Rol Yönetim Sistemi` })
                 .setTimestamp();
-            try { await newMember.send({ embeds: [rolSilEmbed] }); } catch(e) {}
+            try { await newMember.send({ embeds: [rolSilEmbed] }); } catch(e) { console.log(`[DM Hata] ${newMember.user.tag} kullanıcısına rol silme DM'i kapalı.`); }
         });
     }
 });
@@ -132,6 +156,11 @@ client.once('ready', async () => {
             name: 'profil',
             description: '📊 Bakiyenizi, seviyenizi ve aktiflik istatistiklerinizi gösterir',
             options: [{ name: 'kullanici', description: 'Profiline bakılacak üye', type: ApplicationCommandOptionType.User, required: false }]
+        },
+        {
+            name: 'sicil',
+            description: '🚨 Belirtilen üyenin tüm ceza, tutanak, mute ve ban geçmişini dökümler',
+            options: [{ name: 'üye', description: 'Siciline bakılacak sunucu üyesi', type: ApplicationCommandOptionType.User, required: true }]
         },
         {
             name: 'bakiye',
@@ -276,7 +305,7 @@ client.on('messageCreate', async (message) => {
     const data = veriOku();
     
     if (!data[userId]) {
-        data[userId] = { bakiye: 100, banka: 0, xp: 0, seviye: 1, gunlukZaman: 0, uyariSayisi: 0 };
+        data[userId] = { bakiye: 100, banka: 0, xp: 0, seviye: 1, gunlukZaman: 0, uyariSayisi: 0, sicil: { tutanaklar: [], muteler: [], banlar: [] } };
     }
 
     const kazanilanBakiye = Math.floor(Math.random() * 5) + 1;
@@ -326,7 +355,7 @@ client.on('interactionCreate', async (interaction) => {
                 .setColor('#5865F2')
                 .addFields(
                     { name: '🪙 OwO Ekonomi ve Mini Eğlence Oyunları', value: `> \`/profil\` - Detaylı seviye ve varlık paneli.\n> \`/bakiye\` - Hızlı cüzdan ve nakit sorgusu.\n> \`/gönder\` - Güvenli hesaplar arası nakit transferi.\n> \`/günlük\` - 24 saatlik hediye ödül kasası.\n> \`/yazıtura\` - Ortaya nakit bahis koyup yazı tura oynama.\n> \`/zar\` - Bot ile canlı zar kapıştırma turnuvası.\n> \`/slots\` - Şanslı slot meyve makinesi.` },
-                    { name: '🛡️ Güçlü Moderasyon ve Yönetici Komutları', value: `> \`/cekilis\` - Canlı saniyeli sayaçlı normal çekiliş.\n> \`/404cekilis\` - Otomatik teslimatlı Nakit çekilişi.\n> \`/temizle\` - Kanaldaki kalabalığı toplu temizler.\n> \`/tamyasakla\` - Üyeyi sunucudan uzaklaştırır (Ban).\n> \`/ipyasakla\` - Üyeyi kalıcı IP altyapısıyla engeller.\n> \`/sustur\` - İstenen süre kadar timeout atar.\n> \`/susturarak\` - Cezalı üyenin cezasını erkenden bozar.\n> \`/uyar\` - Üyeye kalıcı uyarı puanı sicili işler.\n> \`/kick\` - Üyeyi tek seferlik sunucudan dışarı atar.` }
+                    { name: '🛡️ Güçlü Moderasyon ve Yönetici Komutları', value: `> \`/sicil\` - Üyenin detaylı ceza, tutanak ve ban geçmişi.\n> \`/cekilis\` - Canlı saniyeli sayaçlı normal çekiliş.\n> \`/404cekilis\` - Otomatik teslimatlı Nakit çekilişi.\n> \`/temizle\` - Kanaldaki kalabalığı toplu temizler.\n> \`/tamyasakla\` - Üyeyi sunucudan uzaklaştırır (Ban).\n> \`/ipyasakla\` - Üyeyi kalıcı IP altyapısıyla engeller.\n> \`/sustur\` - İstenen süre kadar timeout atar.\n> \`/susturarak\` - Cezalı üyenin cezasını erkenden bozar.\n> \`/uyar\` - Üyeye kalıcı uyarı puanı sicili işler.\n> \`/kick\` - Üyeyi tek seferlik sunucudan dışarı atar.` }
                 )
                 .setFooter({ text: '404 Family • Her Zaman En İyisi', iconURL: interaction.guild.iconURL() }).setTimestamp();
             
@@ -402,6 +431,42 @@ client.on('interactionCreate', async (interaction) => {
         if (!yetkiKontrol(interaction)) return interaction.reply({ content: '❌ Bu komutu kullanmak için yetkiniz yetersiz.', flags: [MessageFlags.Ephemeral] });
     }
 
+    // ==========================================
+    // 🚨 YENİ SİCİL SORGULAMA KOMUTU 🚨
+    // ==========================================
+    if (commandName === 'sicil') {
+        const hedefKullanici = options.getUser('üye');
+        const uVeri = profilGereksinim(hedefKullanici.id);
+        const sicil = uVeri.sicil;
+
+        const sTutanaklar = sicil.tutanaklar.length > 0 
+            ? sicil.tutanaklar.map((t, i) => `**[${i+1}]** 📅 \`${t.tarih}\` | 📝 **Sebep:** \`${t.sebep}\` | 👮 **Yetkili:** \`${t.yetkili}\``).join('\n') 
+            : '🟢 Temiz! Kayıtlı resmi tutanak (uyarı) bulunmuyor.';
+
+        const sMuteler = sicil.muteler.length > 0 
+            ? sicil.muteler.map((m, i) => `**[${i+1}]** 📅 \`${m.tarih}\` | ⏱️ \`${m.sure} Dk\` | 📝 **Sebep:** \`${m.sebep}\` | 👮 **Yetkili:** \`${m.yetkili}\``).join('\n') 
+            : '🟢 Temiz! Herhangi bir susturma cezası kaydı yok.';
+
+        const sBanlar = sicil.banlar.length > 0 
+            ? sicil.banlar.map((b, i) => `**[${i+1}]** 📅 \`${b.tarih}\` | 🚫 \`[${b.tür}]\` | 📝 **Sebep:** \`${b.sebep}\` | 👮 **Yetkili:** \`${b.yetkili}\``).join('\n') 
+            : '🟢 Temiz! Sunucudan atılma veya yasaklanma kaydı yok.';
+
+        const sicilEmbed = new EmbedBuilder()
+            .setTitle(`🚨 | ${hedefKullanici.username} - Sunucu Sicil Dosyası`)
+            .setThumbnail(hedefKullanici.displayAvatarURL({ dynamic: true }))
+            .setColor('#E74C3C')
+            .setDescription(`Aşağıda bu kullanıcının sunucuda aldığı tüm disiplin işlemleri ve tutanak gerekçeleri listelenmiştir:`)
+            .addFields(
+                { name: `🚨 Resmi Uyarı Tutanakları (${sicil.tutanaklar.length})`, value: sTutanaklar },
+                { name: `🔇 Susturma / Timeout Geçmişi (${sicil.muteler.length})`, value: sMuteler },
+                { name: `🚫 Ağır Cezalar (Ban / Kick Geçmişi) (${sicil.banlar.length})`, value: sBanlar }
+            )
+            .setFooter({ text: '404 Family Disiplin Masası Arşivi' })
+            .setTimestamp();
+
+        return interaction.reply({ embeds: [sicilEmbed] });
+    }
+
     // --- TEMİZLE KOMUTU ---
     if (commandName === 'temizle') {
         const silinecekMiktar = options.getInteger('sayi');
@@ -452,6 +517,21 @@ client.on('interactionCreate', async (interaction) => {
         let kalanSure = options.getInteger('sure');
         const odul = options.getString('odul');
         await interaction.reply({ content: '✨ Çekiliş kuruluyor...', flags: [MessageFlags.Ephemeral] });
+
+        // 📩 Çekiliş Başladığında Üyelere DM Bildirimi Gönderme Paneli
+        const tumUyeler = await guild.members.fetch();
+        tumUyeler.forEach(async (m) => {
+            if (m.user.bot) return;
+            const dmCekilisBildirim = new EmbedBuilder()
+                .setColor('#5865F2')
+                .setTitle('🎁 | Sunucuda Yeni Bir Çekiliş Başladı!')
+                .setDescription(`**${guild.name}** sunucumuzda harika bir çekiliş şöleni başladı. Şansını kaçırmak istemiyorsan hemen gel ve butona bas!`)
+                .addFields(
+                    { name: '🏆 Verilecek Büyük Ödül:', value: `🎁 **${odul}**` },
+                    { name: '⏱️ Katılım Süresi:', value: `\`${kalanSure} Saniye\`` }
+                ).setTimestamp();
+            try { await m.send({ embeds: [dmCekilisBildirim] }); } catch(e) {}
+        });
 
         const msg = await channel.send({ content: '⏳ Çekiliş paneli hazırlanıyor...' });
         const cekilisId = msg.id;
@@ -531,6 +611,21 @@ client.on('interactionCreate', async (interaction) => {
 
         if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz miktar.', flags: [MessageFlags.Ephemeral] });
         await interaction.reply({ content: '🪙 Otomatik nakit çekilişi kuruluyor...', flags: [MessageFlags.Ephemeral] });
+
+        // 📩 404 Çekilişi Başladığında Üyelere DM Bildirimi
+        const tumUyeler = await guild.members.fetch();
+        tumUyeler.forEach(async (m) => {
+            if (m.user.bot) return;
+            const dmCekilisBildirim = new EmbedBuilder()
+                .setColor('#FEE75C')
+                .setTitle('🪙 | Sunucuda Büyük Nakit Çekilişi Başladı!')
+                .setDescription(`**${guild.name}** sunucumuzda cüzdanları dolduracak dev bir ekonomi çekilişi başladı!`)
+                .addFields(
+                    { name: '💰 Dağıtılacak Nakit:', value: `🪙 **${miktar} adet [404 Nakit]**` },
+                    { name: '⏱️ Kalan Süre:', value: `\`${kalanSure} Saniye\`` }
+                ).setTimestamp();
+            try { await m.send({ embeds: [dmCekilisBildirim] }); } catch(e) {}
+        });
 
         const msg = await channel.send({ content: '⏳ 404 Nakit Çekiliş paneli hazırlanıyor...' });
         const cekilisId = msg.id;
@@ -622,7 +717,7 @@ client.on('interactionCreate', async (interaction) => {
             .addFields(
                 { name: '🪙 Cüzdan Bakiyesi:', value: `\`💰 ${uVeri.bakiye} adet [404 Nakit]\``, inline: true },
                 { name: '🌟 Mevcut Aşama:', value: `\`✨ Level ${uVeri.seviye}\``, inline: true },
-                { name: '📊 İlerleme Durumu (XP):', value: `\`📈 ${uVeri.xp} / ${gerekenXp} XP\` (Sonraki seviyeye \`${gerekenXp - uVeri.xp}\` XP kaldı.)`, inline: false },
+                { name: '📊 İlerleme Durumu (XP):', value: `\`📈 ${uVeri.xp} / ${requiredXp} XP\` (Sonraki seviyeye \`${gerekenXp - uVeri.xp}\` XP kaldı.)`, inline: false },
                 { name: '⚠️ Sicil Geçmişi:', value: `\`🚨 Toplam Uyarı: ${uVeri.uyariSayisi || 0}\``, inline: false }
             ).setTimestamp();
         return interaction.reply({ embeds: [profilEmbed] });
@@ -818,13 +913,19 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     // ==========================================
-    // 🚫 MODERASYON KOMUTLARI (DETAYLANDIRILMIŞ VE DM BİLDİRİMLİ)
+    // 🚫 MODERASYON KOMUTLARI (SİCİL VERİ KAYITLI VE DM SEVKİYATLI)
     // ==========================================
 
     if (commandName === 'tamyasakla') {
         const member = options.getMember('kullanici'); 
         const sebep = options.getString('sebep') || 'Belirtilmedi';
         if (!member) return interaction.reply({ content: '❌ Kullanıcı bulunamadı veya sunucuda değil.', flags: [MessageFlags.Ephemeral] });
+
+        // 📝 Sicil Veritabanına Kayıt
+        profilGereksinim(member.id);
+        const dbData = veriOku();
+        dbData[member.id].sicil.banlar.push({ tür: 'BAN', sebep: sebep, yetkili: yetkili.tag, tarih: new Date().toLocaleString('tr-TR') });
+        veriYaz(dbData);
 
         // 📩 Kullanıcıya Ultra Detaylı DM Bildirimi
         const dmEmbed = new EmbedBuilder()
@@ -841,7 +942,6 @@ client.on('interactionCreate', async (interaction) => {
 
         await member.ban({ reason: `Yetkili: ${yetkili.tag} | Gerekçe: ${sebep}` });
 
-        // 📢 Herkesin Göreceği Detaylı Ceza Embed Paneli (EPHEMERAL DEĞİL)
         const banEmbed = new EmbedBuilder()
             .setColor('#ED4245')
             .setTitle('🚫 | KALICI YASAKLAMA İŞLEMİ')
@@ -858,6 +958,11 @@ client.on('interactionCreate', async (interaction) => {
         const member = options.getMember('kullanici');
         const sebep = options.getString('sebep') || 'Ağ Güvenliği / Ağır Kural İhlali';
         if (!member) return interaction.reply({ content: '❌ Kullanıcı bulunamadı.', flags: [MessageFlags.Ephemeral] });
+
+        profilGereksinim(member.id);
+        const dbData = veriOku();
+        dbData[member.id].sicil.banlar.push({ tür: 'IP-BAN', sebep: sebep, yetkili: yetkili.tag, tarih: new Date().toLocaleString('tr-TR') });
+        veriYaz(dbData);
 
         const dmEmbed = new EmbedBuilder()
             .setColor('#7a0000')
@@ -899,6 +1004,12 @@ client.on('interactionCreate', async (interaction) => {
         const sure = options.getInteger('sure');
         const sebep = options.getString('sebep') || 'Belirtilmedi';
         if (!member) return interaction.reply({ content: '❌ Kullanıcı bulunamadı.', flags: [MessageFlags.Ephemeral] });
+
+        // 📝 Sicil Mute Kaydı
+        profilGereksinim(member.id);
+        const dbData = veriOku();
+        dbData[member.id].sicil.muteler.push({ sure: sure, sebep: sebep, yetkili: yetkili.tag, tarih: new Date().toLocaleString('tr-TR') });
+        veriYaz(dbData);
 
         const dmEmbed = new EmbedBuilder()
             .setColor('#E67E22')
@@ -952,21 +1063,23 @@ client.on('interactionCreate', async (interaction) => {
         const sebep = options.getString('sebep') || 'Kural İhlali / Uyarı gerektiren davranış';
         if (!member) return interaction.reply({ content: '❌ Kullanıcı bulunamadı.', flags: [MessageFlags.Ephemeral] });
 
+        profilGereksinim(member.id);
         const dbData = veriOku();
-        if (!dbData[member.id]) {
-            dbData[member.id] = { bakiye: 100, banka: 0, xp: 0, seviye: 1, gunlukZaman: 0, uyariSayisi: 0 };
-        }
         dbData[member.id].uyariSayisi = (dbData[member.id].uyariSayisi || 0) + 1;
+        
+        // 📝 Sicil Tutanak Kaydı
+        dbData[member.id].sicil.tutanaklar.push({ sebep: sebep, yetkili: yetkili.tag, tarih: new Date().toLocaleString('tr-TR') });
         veriYaz(dbData);
 
+        // 📩 Uyarı DM Sevkiyatı
         const dmEmbed = new EmbedBuilder()
             .setColor('#F1C40F')
-            .setTitle('⚠️ | RESMİ UYARI ALDINIZ!')
-            .setDescription(`**${guild.name}** sunucusunda kuralları esnettiğiniz için sicilinize yeni bir uyarı puanı eklenmiştir.`)
+            .setTitle('⚠️ | RESMİ UYARI (TUTANAK) ALDINIZ!')
+            .setDescription(`**${guild.name}** sunucusunda kuralları ihlal ettiğiniz için sicilinize yeni bir tutanak işlenmiştir.`)
             .addFields(
-                { name: '📝 Uyarı Sebebi:', value: `\`${sebep}\``, inline: true },
+                { name: '📝 Tutanak Gerekçesi:', value: `\`${sebep}\``, inline: true },
                 { name: '📊 Toplam Uyarı Sayınız:', value: `🚨 **${dbData[member.id].uyariSayisi}**`, inline: true },
-                { name: '👮 Uyaran Yetkili:', value: `**${yetkili.tag}**`, inline: false }
+                { name: '👮 İşlem Yapan Yetkili:', value: `**${yetkili.tag}**`, inline: false }
             )
             .setFooter({ text: 'Lütfen tekrarlamamaya ve sunucu nizamına uymaya özen gösterin.' }).setTimestamp();
         try { await member.send({ embeds: [dmEmbed] }); } catch(e) {}
@@ -976,7 +1089,7 @@ client.on('interactionCreate', async (interaction) => {
             .setTitle('⚠️ | RESMİ UYARI İŞLEMİ')
             .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
             .addFields(
-                { name: '👤 Uyarılan Suçlu Üye:', value: `${member} (\`${member.id}\`)`, inline: true },
+                { name: '👤 Uyarılan Üye:', value: `${member} (\`${member.id}\`)`, inline: true },
                 { name: '🚨 Güncel Uyarı Sicili:', value: `\`${dbData[member.id].uyariSayisi}. Uyarı\``, inline: true },
                 { name: '👮 Tutanak Tutan Yetkili:', value: `${interaction.user.toString()}`, inline: false },
                 { name: '📝 Tutanak Gerekçesi:', value: `\`${sebep}\``, inline: false }
@@ -988,6 +1101,11 @@ client.on('interactionCreate', async (interaction) => {
         const member = options.getMember('kullanici');
         const sebep = options.getString('sebep') || 'Belirtilmedi';
         if (!member) return interaction.reply({ content: '❌ Kullanıcı bulunamadı.', flags: [MessageFlags.Ephemeral] });
+
+        profilGereksinim(member.id);
+        const dbData = veriOku();
+        dbData[member.id].sicil.banlar.push({ tür: 'KICK', sebep: sebep, yetkili: yetkili.tag, tarih: new Date().toLocaleString('tr-TR') });
+        veriYaz(dbData);
 
         const dmEmbed = new EmbedBuilder()
             .setColor('#E74C3C')
@@ -1009,7 +1127,7 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ embeds: [kickEmbed] });
     }
 
-    // --- ESKİ DOĞRU KİLİT SİSTEMİ ---
+    // --- KİLİT SİSTEMİ ---
     if (commandName === 'kilit') {
         const durum = options.getString('durum');
         if (durum === 'ac') {
@@ -1023,11 +1141,26 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
+    // --- DUYURU VE TOPLU DM SİSTEMİ ---
     if (commandName === 'duyuru') {
         const duyuruMetni = options.getString('mesaj');
         const embed = new EmbedBuilder().setTitle('📢 | SUNUCU DUYURUSU VE BİLGİLENDİRME').setDescription(`${duyuruMetni}`).setColor('#5865F2').setFooter({ text: '404 Family Yönetim Kurulu' }).setTimestamp();
-        await interaction.reply({ content: '✅ Duyuru başarıyla geçildi.', flags: [MessageFlags.Ephemeral] });
+        
+        await interaction.reply({ content: '✅ Duyuru yapıldı ve üyelere DM bildirimleri sevk ediliyor...', flags: [MessageFlags.Ephemeral] });
         await channel.send({ content: '@everyone', embeds: [embed] });
+
+        // 📩 Sunucudaki Tüm Üyelere Duyuruyu DM Olarak Atma Paneli
+        const tumUyeler = await guild.members.fetch();
+        tumUyeler.forEach(async (m) => {
+            if (m.user.bot) return;
+            const dmDuyuruEmbed = new EmbedBuilder()
+                .setColor('#5865F2')
+                .setTitle(`📢 | ${guild.name} Sunucusundan Yeni Duyuru!`)
+                .setDescription(`${duyuruMetni}`)
+                .setFooter({ text: 'Gelişmelerden anında haberdar olmanız için gönderilmiştir.' })
+                .setTimestamp();
+            try { await m.send({ embeds: [dmDuyuruEmbed] }); } catch(e) {}
+        });
     }
 
     if (commandName === 'unban') {
