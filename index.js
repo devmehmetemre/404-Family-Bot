@@ -66,7 +66,6 @@ function profilGereksinim(userId) {
         }; 
         veriYaz(data);
     }
-    // Eğer eski veritabanı varsa ve sicil objesi yoksa dinamik olarak ekle
     if (!data[userId].sicil) {
         data[userId].sicil = { tutanaklar: [], muteler: [], banlar: [] };
         veriYaz(data);
@@ -95,14 +94,162 @@ function cooldownKontrol(userId) {
 }
 
 // ==========================================
+// 🔄 TÜM GLOBAL SLASH KOMUTLARI LİSTESİ (Sadece Yenile Eklendi)
+// ==========================================
+const commands = [
+    { name: 'yardım', description: 'ℹ️ Botun tüm komutlarını ve kullanım rehberini gösterir' },
+    {
+        name: 'profil',
+        description: '📊 Bakiyenizi, seviyenizi ve aktiflik istatistiklerinizi gösterir',
+        options: [{ name: 'kullanici', description: 'Profiline bakılacak üye', type: ApplicationCommandOptionType.User, required: false }]
+    },
+    {
+        name: 'sicil',
+        description: '🚨 Belirtilen üyenin tüm ceza, tutanak, mute ve ban geçmişini dökümler',
+        options: [{ name: 'üye', description: 'Siciline bakılacak sunucu üyesi', type: ApplicationCommandOptionType.User, required: true }]
+    },
+    {
+        name: 'bakiye',
+        description: '💰 Mevcut bakiyenizi hızlıca sorgular',
+        options: [{ name: 'kullanici', description: 'Bakiyesine bakılacak üye', type: ApplicationCommandOptionType.User, required: false }]
+    },
+    {
+        name: 'gönder',
+        description: '💸 Başka bir üyeye cüzdanınızdan nakit transfer edersiniz',
+        options: [
+            { name: 'kullanici', description: 'Para gönderilecek üye', type: ApplicationCommandOptionType.User, required: true },
+            { name: 'miktar', description: 'Gönderilecek miktar', type: ApplicationCommandOptionType.Integer, required: true }
+        ]
+    },
+    { name: 'günlük', description: '🎁 Her 24 saatte bir şansınıza göre ücretsiz hediye nakit verir' },
+    {
+        name: '404cekilis',
+        description: '🪙 Belirtilen miktar ödüllü otomatik teslimatlı nakit çekilişi başlatır (Yetkili)',
+        options: [
+            { name: 'sure', description: 'Saniye cinsinden çekiliş süresi', type: ApplicationCommandOptionType.Integer, required: true },
+            { name: 'miktar', description: 'Dağıtılacak para miktarı', type: ApplicationCommandOptionType.Integer, required: true }
+        ]
+    },
+    {
+        name: 'yazıtura',
+        description: '🪙 Belirttiğiniz miktar ile canlı yazı tura oynarsınız (5sn Cooldown)',
+        options: [
+            { name: 'miktar', description: 'Ortaya koyulacak miktar', type: ApplicationCommandOptionType.Integer, required: true },
+            { 
+                name: 'tahmin', 
+                description: 'Yazı mı Tura mı?', 
+                type: ApplicationCommandOptionType.String, 
+                required: true,
+                choices: [{ name: 'Yazı', value: 'yazi' }, { name: 'Tura', value: 'tura' }]
+            }
+        ]
+    },
+    {
+        name: 'zar',
+        description: '🎲 Bot ile canlı zar kapıştırma oyunu oynarsınız (5sn Cooldown)',
+        options: [{ name: 'miktar', description: 'Ortaya koyulacak miktar', type: ApplicationCommandOptionType.Integer, required: true }]
+    },
+    {
+        name: 'slots',
+        description: '🎰 Şansınızı canlı slot makinesinde denersiniz (5sn Cooldown)',
+        options: [{ name: 'miktar', description: 'Ortaya koyulacak miktar', type: ApplicationCommandOptionType.Integer, required: true }]
+    },
+    {
+        name: 'tamyasakla',
+        description: '🛡️ Belirtilen kullanıcıyı sunucudan tamamen yasaklar (Ban)',
+        options: [
+            { name: 'kullanici', description: 'Yasaklanacak üye', type: ApplicationCommandOptionType.User, required: true },
+            { name: 'sebep', description: 'Yasaklama gerekçesi', type: ApplicationCommandOptionType.String, required: false }
+        ]
+    },
+    {
+        name: 'ipyasakla',
+        description: '💥 Kullanıcıyı IP adresiyle birlikte sunucudan uzaklaştırır',
+        options: [
+            { name: 'kullanici', description: 'IP ban atılacak üye', type: ApplicationCommandOptionType.User, required: true },
+            { name: 'sebep', description: 'Uzaklaştırma gerekçesi', type: ApplicationCommandOptionType.String, required: false }
+        ]
+    },
+    {
+        name: 'sustur',
+        description: '🔇 Kullanıcıyı belirtilen süre kadar susturur (Timeout)',
+        options: [
+            { name: 'kullanici', description: 'Susturulacak üye', type: ApplicationCommandOptionType.User, required: true },
+            { name: 'sure', description: 'Dakika cinsinden süre', type: ApplicationCommandOptionType.Integer, required: true },
+            { name: 'sebep', description: 'Susturma gerekçesi', type: ApplicationCommandOptionType.String, required: false }
+        ]
+    },
+    {
+        name: 'susturarak',
+        description: '🔊 Cezalı bir kullanıcının susturma süresini erkenden kaldırır',
+        options: [{ name: 'kullanici', description: 'Susturması açılacak üye', type: ApplicationCommandOptionType.User, required: true }]
+    },
+    {
+        name: 'kilit',
+        description: '🔒 Bulunduğunuz metin kanalını yazıya kapatır veya açar',
+        options: [
+            {
+                name: 'durum',
+                description: 'Kanalın kilit durumunu seçin',
+                type: ApplicationCommandOptionType.String,
+                required: true,
+                choices: [{ name: 'Kanalı Kilitle 🔒', value: 'kilitle' }, { name: 'Kanalı Aç 🔓', value: 'ac' }]
+            }
+        ]
+    },
+    {
+        name: 'cekilis',
+        description: '🎁 Standart (Normal Ödüllü) butonlu çekiliş sistemi başlatır',
+        options: [
+            { name: 'sure', description: 'Saniye cinsinden çekiliş süresi', type: ApplicationCommandOptionType.Integer, required: true },
+            { name: 'odul', description: 'Verilecek çekiliş ödülü', type: ApplicationCommandOptionType.String, required: true }
+        ]
+    },
+    {
+        name: 'duyuru',
+        description: '📢 Tüm sunucuya @everyone etiketiyle şık duyuru paneli gönderir',
+        options: [{ name: 'mesaj', description: 'Duyurulacak metin içeriği', type: ApplicationCommandOptionType.String, required: true }]
+    },
+    {
+        name: 'uyar',
+        description: '⚠️ Kuralları ihlal eden üyeyi uyarır',
+        options: [
+            { name: 'kullanici', description: 'Uyarılacak üye', type: ApplicationCommandOptionType.User, required: true },
+            { name: 'sebep', description: 'Uyarı gerekçesi', type: ApplicationCommandOptionType.String, required: false }
+        ]
+    },
+    {
+        name: 'unban',
+        description: '🔓 Yasaklanmış bir üyenin engelini ID kullanarak kaldırır',
+        options: [{ name: 'id', description: 'Yasağı kaldırılacak üyenin Discord ID\'si', type: ApplicationCommandOptionType.String, required: true }]
+    },
+    {
+        name: 'kick',
+        description: '👢 Belirtilen üyeyi sunucudan tek seferlik atar',
+        options: [
+            { name: 'kullanici', description: 'Sunucudan atılacak üye', type: ApplicationCommandOptionType.User, required: true },
+            { name: 'sebep', description: 'Atılma gerekçesi', type: ApplicationCommandOptionType.String, required: false }
+        ]
+    },
+    {
+        name: 'temizle',
+        description: '🧹 Belirtilen miktarda son atılan mesajı kanaldan toplu olarak siler',
+        options: [
+            { name: 'sayi', description: 'Silinecek mesaj miktarı (1 - 100 arası)', type: ApplicationCommandOptionType.Integer, required: true }
+        ]
+    },
+    { name: 'istatistik', description: '⚙️ Botun ping, uptime ve donanım verilerini gösterir' },
+    // ➕ EKLENEN YENİ SENKRONİZASYON KOMUTU
+    { name: 'yenile', description: '🔄 Discord Slash komut listesini anlık olarak senkronize edip yeniler (Yönetici)' }
+];
+
+// ==========================================
 // 🛡️ DİNAMİK ROL GÜNCELLEME (DM BİLDİRİMİ EVENTİ)
 // ==========================================
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
-    // Eski veya yeni hal cache'de yoksa sunucudan çekmesini zorunlu kılıyoruz
     if (oldMember.partial) { try { await oldMember.fetch(); } catch (e) { return; } }
     if (newMember.partial) { try { await newMember.fetch(); } catch (e) { return; } }
 
-    // ➕ Rol Eklendiğinde Tetiklenen Kısım
     const eklenenRoller = newMember.roles.cache.filter(role => !oldMember.roles.cache.has(role.id));
     if (eklenenRoller.size > 0) {
         eklenenRoller.forEach(async (role) => {
@@ -118,11 +265,10 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
                 )
                 .setFooter({ text: `${newMember.guild.name} • Ayrıcalık Yönetim Sistemi` })
                 .setTimestamp();
-            try { await newMember.send({ embeds: [rolEkleEmbed] }); } catch(e) { console.log(`[DM Hata] ${newMember.user.tag} kullanıcısına rol ekleme DM'i kapalı.`); }
+            try { await newMember.send({ embeds: [rolEkleEmbed] }); } catch(e) {}
         });
     }
 
-    // ➖ Rol Silindiğinde Tetiklenen Kısım
     const silinenRoller = oldMember.roles.cache.filter(role => !newMember.roles.cache.has(role.id));
     if (silinenRoller.size > 0) {
         silinenRoller.forEach(async (role) => {
@@ -138,7 +284,7 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
                 )
                 .setFooter({ text: `${newMember.guild.name} • Rol Yönetim Sistemi` })
                 .setTimestamp();
-            try { await newMember.send({ embeds: [rolSilEmbed] }); } catch(e) { console.log(`[DM Hata] ${newMember.user.tag} kullanıcısına rol silme DM'i kapalı.`); }
+            try { await newMember.send({ embeds: [rolSilEmbed] }); } catch(e) {}
         });
     }
 });
@@ -150,152 +296,16 @@ client.once('ready', async () => {
         status: 'online',
     });
 
-    const commands = [
-        { name: 'yardım', description: 'ℹ️ Botun tüm komutlarını ve kullanım rehberini gösterir' },
-        {
-            name: 'profil',
-            description: '📊 Bakiyenizi, seviyenizi ve aktiflik istatistiklerinizi gösterir',
-            options: [{ name: 'kullanici', description: 'Profiline bakılacak üye', type: ApplicationCommandOptionType.User, required: false }]
-        },
-        {
-            name: 'sicil',
-            description: '🚨 Belirtilen üyenin tüm ceza, tutanak, mute ve ban geçmişini dökümler',
-            options: [{ name: 'üye', description: 'Siciline bakılacak sunucu üyesi', type: ApplicationCommandOptionType.User, required: true }]
-        },
-        {
-            name: 'bakiye',
-            description: '💰 Mevcut bakiyenizi hızlıca sorgular',
-            options: [{ name: 'kullanici', description: 'Bakiyesine bakılacak üye', type: ApplicationCommandOptionType.User, required: false }]
-        },
-        {
-            name: 'gönder',
-            description: '💸 Başka bir üyeye cüzdanınızdan nakit transfer edersiniz',
-            options: [
-                { name: 'kullanici', description: 'Para gönderilecek üye', type: ApplicationCommandOptionType.User, required: true },
-                { name: 'miktar', description: 'Gönderilecek miktar', type: ApplicationCommandOptionType.Integer, required: true }
-            ]
-        },
-        { name: 'günlük', description: '🎁 Her 24 saatte bir şansınıza göre ücretsiz hediye nakit verir' },
-        {
-            name: '404cekilis',
-            description: '🪙 Belirtilen miktar ödüllü otomatik teslimatlı nakit çekilişi başlatır (Yetkili)',
-            options: [
-                { name: 'sure', description: 'Saniye cinsinden çekiliş süresi', type: ApplicationCommandOptionType.Integer, required: true },
-                { name: 'miktar', description: 'Dağıtılacak para miktarı', type: ApplicationCommandOptionType.Integer, required: true }
-            ]
-        },
-        {
-            name: 'yazıtura',
-            description: '🪙 Belirttiğiniz miktar ile canlı yazı tura oynarsınız (5sn Cooldown)',
-            options: [
-                { name: 'miktar', description: 'Ortaya koyulacak miktar', type: ApplicationCommandOptionType.Integer, required: true },
-                { 
-                    name: 'tahmin', 
-                    description: 'Yazı mı Tura mı?', 
-                    type: ApplicationCommandOptionType.String, 
-                    required: true,
-                    choices: [{ name: 'Yazı', value: 'yazi' }, { name: 'Tura', value: 'tura' }]
-                }
-            ]
-        },
-        {
-            name: 'zar',
-            description: '🎲 Bot ile canlı zar kapıştırma oyunu oynarsınız (5sn Cooldown)',
-            options: [{ name: 'miktar', description: 'Ortaya koyulacak miktar', type: ApplicationCommandOptionType.Integer, required: true }]
-        },
-        {
-            name: 'slots',
-            description: '🎰 Şansınızı canlı slot makinesinde denersiniz (5sn Cooldown)',
-            options: [{ name: 'miktar', description: 'Ortaya koyulacak miktar', type: ApplicationCommandOptionType.Integer, required: true }]
-        },
-        {
-            name: 'tamyasakla',
-            description: '🛡️ Belirtilen kullanıcıyı sunucudan tamamen yasaklar (Ban)',
-            options: [
-                { name: 'kullanici', description: 'Yasaklanacak üye', type: ApplicationCommandOptionType.User, required: true },
-                { name: 'sebep', description: 'Yasaklama gerekçesi', type: ApplicationCommandOptionType.String, required: false }
-            ]
-        },
-        {
-            name: 'ipyasakla',
-            description: '💥 Kullanıcıyı IP adresiyle birlikte sunucudan uzaklaştırır',
-            options: [
-                { name: 'kullanici', description: 'IP ban atılacak üye', type: ApplicationCommandOptionType.User, required: true },
-                { name: 'sebep', description: 'Uzaklaştırma gerekçesi', type: ApplicationCommandOptionType.String, required: false }
-            ]
-        },
-        {
-            name: 'sustur',
-            description: '🔇 Kullanıcıyı belirtilen süre kadar susturur (Timeout)',
-            options: [
-                { name: 'kullanici', description: 'Susturulacak üye', type: ApplicationCommandOptionType.User, required: true },
-                { name: 'sure', description: 'Dakika cinsinden süre', type: ApplicationCommandOptionType.Integer, required: true },
-                { name: 'sebep', description: 'Susturma gerekçesi', type: ApplicationCommandOptionType.String, required: false }
-            ]
-        },
-        {
-            name: 'susturarak',
-            description: '🔊 Cezalı bir kullanıcının susturma süresini erkenden kaldırır',
-            options: [{ name: 'kullanici', description: 'Susturması açılacak üye', type: ApplicationCommandOptionType.User, required: true }]
-        },
-        {
-            name: 'kilit',
-            description: '🔒 Bulunduğunuz metin kanalını yazıya kapatır veya açar',
-            options: [
-                {
-                    name: 'durum',
-                    description: 'Kanalın kilit durumunu seçin',
-                    type: ApplicationCommandOptionType.String,
-                    required: true,
-                    choices: [{ name: 'Kanalı Kilitle 🔒', value: 'kilitle' }, { name: 'Kanalı Aç 🔓', value: 'ac' }]
-                }
-            ]
-        },
-        {
-            name: 'cekilis',
-            description: '🎁 Standart (Normal Ödüllü) butonlu çekiliş sistemi başlatır',
-            options: [
-                { name: 'sure', description: 'Saniye cinsinden çekiliş süresi', type: ApplicationCommandOptionType.Integer, required: true },
-                { name: 'odul', description: 'Verilecek çekiliş ödülü', type: ApplicationCommandOptionType.String, required: true }
-            ]
-        },
-        {
-            name: 'duyuru',
-            description: '📢 Tüm sunucuya @everyone etiketiyle şık duyuru paneli gönderir',
-            options: [{ name: 'mesaj', description: 'Duyurulacak metin içeriği', type: ApplicationCommandOptionType.String, required: true }]
-        },
-        {
-            name: 'uyar',
-            description: '⚠️ Kuralları ihlal eden üyeyi uyarır',
-            options: [
-                { name: 'kullanici', description: 'Uyarılacak üye', type: ApplicationCommandOptionType.User, required: true },
-                { name: 'sebep', description: 'Uyarı gerekçesi', type: ApplicationCommandOptionType.String, required: false }
-            ]
-        },
-        {
-            name: 'unban',
-            description: '🔓 Yasaklanmış bir üyenin engelini ID kullanarak kaldırır',
-            options: [{ name: 'id', description: 'Yasağı kaldırılacak üyenin Discord ID\'si', type: ApplicationCommandOptionType.String, required: true }]
-        },
-        {
-            name: 'kick',
-            description: '👢 Belirtilen üyeyi sunucudan tek seferlik atar',
-            options: [
-                { name: 'kullanici', description: 'Sunucudan atılacak üye', type: ApplicationCommandOptionType.User, required: true },
-                { name: 'sebep', description: 'Atılma gerekçesi', type: ApplicationCommandOptionType.String, required: false }
-            ]
-        },
-        {
-            name: 'temizle',
-            description: '🧹 Belirtilen miktarda son atılan mesajı kanaldan toplu olarak siler',
-            options: [
-                { name: 'sayi', description: 'Silinecek mesaj miktarı (1 - 100 arası)', type: ApplicationCommandOptionType.Integer, required: true }
-            ]
-        },
-        { name: 'istatistik', description: '⚙️ Botun ping, uptime ve donanım verilerini gösterir' }
-    ];
-
-    await client.application.commands.set(commands);
+    try {
+        console.log('🔄 Discord API komutları sıfırlanıyor ve yeniden yükleniyor...');
+        // Önce Discord cache temizliği yapılıyor
+        await client.application.commands.set([]);
+        // Güncel array listesini zorla kaydediyoruz
+        await client.application.commands.set(commands);
+        console.log('✅ Tüm Slash komutları Discord önbelleğine başarıyla kazındı!');
+    } catch (error) {
+        console.error('❌ Komutlar yüklenirken Discord API hatası oluştu:', error);
+    }
 });
 
 client.on('messageCreate', async (message) => {
@@ -431,9 +441,32 @@ client.on('interactionCreate', async (interaction) => {
         if (!yetkiKontrol(interaction)) return interaction.reply({ content: '❌ Bu komutu kullanmak için yetkiniz yetersiz.', flags: [MessageFlags.Ephemeral] });
     }
 
-    // ==========================================
-    // 🚨 YENİ SİCİL SORGULAMA KOMUTU 🚨
-    // ==========================================
+    // --- 🔄/YENİLE KOMUTU ÇALIŞMA MANTIĞI ---
+    if (commandName === 'yenile') {
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.reply({ content: '❌ Bu komutu sadece yöneticiler kullanabilir.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.reply({ content: '🔄 Discord komut veritabanı ile senkronizasyon başlatıldı, lütfen bekleyin...', flags: [MessageFlags.Ephemeral] });
+
+        try {
+            await client.application.commands.set([]);
+            await client.application.commands.set(commands); 
+
+            const yenilendiEmbed = new EmbedBuilder()
+                .setTitle('✅ | Discord Önbelleği Yenilendi!')
+                .setDescription('Sunucudaki tüm `/` komutları Discord API üzerinden tamamen güncellendi ve senkronize edildi. Discord uygulamasını kapatıp açmanıza gerek kalmadan yeni komutları kullanabilirsiniz!')
+                .setColor('#2ECC71')
+                .setTimestamp();
+
+            return interaction.editReply({ content: null, embeds: [yenilendiEmbed] });
+        } catch (error) {
+            console.error(error);
+            return interaction.editReply({ content: '❌ Komutlar senkronize edilirken Discord API bir hata döndürdü.' });
+        }
+    }
+
+    // --- SİCİL SORGULAMA KOMUTU ---
     if (commandName === 'sicil') {
         const hedefKullanici = options.getUser('üye');
         const uVeri = profilGereksinim(hedefKullanici.id);
@@ -506,7 +539,7 @@ client.on('interactionCreate', async (interaction) => {
 
         const dailyEmbed = new EmbedBuilder()
             .setTitle('🎁 | GÜNLÜK ÖDÜL KASASI AÇILDI!')
-            .setDescription(`🎉 Harika! Bugünlük şansına tam **+${hediyePara} adet [404 Nakit]** cüzdanına ekliyor!`)
+            .setDescription(`🎉 Harika! Bugünlük şansına tam **+${hediyePara} adet [404 Nakit]** cüzdanınıza ekliyor!`)
             .addFields({ name: '💰 Yeni Güncel Bakiyeniz:', value: `\`${data[interaction.user.id].bakiye} adet [404 Nakit]\`` })
             .setColor('#57F287').setTimestamp();
         return interaction.reply({ embeds: [dailyEmbed] });
@@ -518,7 +551,6 @@ client.on('interactionCreate', async (interaction) => {
         const odul = options.getString('odul');
         await interaction.reply({ content: '✨ Çekiliş kuruluyor...', flags: [MessageFlags.Ephemeral] });
 
-        // 📩 Çekiliş Başladığında Üyelere DM Bildirimi Gönderme Paneli
         const tumUyeler = await guild.members.fetch();
         tumUyeler.forEach(async (m) => {
             if (m.user.bot) return;
@@ -612,7 +644,6 @@ client.on('interactionCreate', async (interaction) => {
         if (miktar <= 0) return interaction.reply({ content: '❌ Geçersiz miktar.', flags: [MessageFlags.Ephemeral] });
         await interaction.reply({ content: '🪙 Otomatik nakit çekilişi kuruluyor...', flags: [MessageFlags.Ephemeral] });
 
-        // 📩 404 Çekilişi Başladığında Üyelere DM Bildirimi
         const tumUyeler = await guild.members.fetch();
         tumUyeler.forEach(async (m) => {
             if (m.user.bot) return;
@@ -635,8 +666,8 @@ client.on('interactionCreate', async (interaction) => {
             .setTitle('🪙 | 404 FAMILY - BÜYÜK HESAP DAĞITIMI')
             .setDescription(`Sistem tarafından otomatik yüklemeli devasa bir nakit dağıtımı başladı!`)
             .addFields(
-                { name: '💰 Çekiliş Ödülü:', value: `🪙 **${miktar} adet [404 Nakit]**`, inline: true },
-                { name: '⏳ Kalan Süre:', value: `⏱️ **${kalanSure} saniye**`, inline: true },
+                { name: '💰 Çekiliş Ödülü:', value: `🪙 **${miktar} adet [404 Nakit]**` },
+                { name: '⏳ Kalan Süre:', value: `⏱️ **${kalanSure} saniye**` },
                 { name: '👥 Toplam Katılımcı:', value: `\`0\``, inline: false }
             )
             .setColor('#FEE75C').setTimestamp();
@@ -656,8 +687,8 @@ client.on('interactionCreate', async (interaction) => {
                     .setTitle('🪙 | 404 FAMILY - BÜYÜK HESAP DAĞITIMI')
                     .setDescription(`Sistem tarafından otomatik yüklemeli devasa bir nakit dağıtımı başladı!`)
                     .addFields(
-                        { name: '💰 Çekiliş Ödülü:', value: `🪙 **${miktar} adet [404 Nakit]**`, inline: true },
-                        { name: '⏳ Kalan Süre:', value: `⏱️ **${kalanSure} saniye**`, inline: true },
+                        { name: '💰 Çekiliş Ödülü:', value: `🪙 **${miktar} adet [404 Nakit]**` },
+                        { name: '⏳ Kalan Süre:', value: `⏱️ **${kalanSure} saniye**` },
                         { name: '👥 Toplam Katılımcı:', value: `\`${anlikListe.length}\``, inline: false }
                     )
                     .setColor('#FEE75C').setTimestamp();
@@ -692,8 +723,8 @@ client.on('interactionCreate', async (interaction) => {
                     .setTitle('🎉 | NAKİT ÇEKİLİŞİ SONUÇLANDI 🎉')
                     .setDescription(`Büyük para dağıtımı sona erdi! Şanslı üyenin cüzdanı havadan dolduruldu.`)
                     .addFields(
-                        { name: '💰 Dağıtılan Ödül:', value: `🪙 **${miktar} adet [404 Nakit]**`, inline: true },
-                        { name: '🍀 Şanslı Talihli:', value: `<@${kazananId}>`, inline: true }
+                        { name: '💰 Dağıtılan Ödül:', value: `🪙 **${miktar} adet [404 Nakit]**` },
+                        { name: '🍀 Şanslı Talihli:', value: `<@${kazananId}>` }
                     )
                     .setFooter({ text: '🌟 Ödül sistem tarafından cüzdana otomatik aktarılmıştır.' })
                     .setColor('#2ECC71').setTimestamp();
@@ -717,7 +748,7 @@ client.on('interactionCreate', async (interaction) => {
             .addFields(
                 { name: '🪙 Cüzdan Bakiyesi:', value: `\`💰 ${uVeri.bakiye} adet [404 Nakit]\``, inline: true },
                 { name: '🌟 Mevcut Aşama:', value: `\`✨ Level ${uVeri.seviye}\``, inline: true },
-                { name: '📊 İlerleme Durumu (XP):', value: `\`📈 ${uVeri.xp} / ${requiredXp} XP\` (Sonraki seviyeye \`${gerekenXp - uVeri.xp}\` XP kaldı.)`, inline: false },
+                { name: '📊 İlerleme Durumu (XP):', value: `\`📈 ${uVeri.xp} / ${gerekenXp} XP\` (Sonraki seviyeye \`${gerekenXp - uVeri.xp}\` XP kaldı.)`, inline: false },
                 { name: '⚠️ Sicil Geçmişi:', value: `\`🚨 Toplam Uyarı: ${uVeri.uyariSayisi || 0}\``, inline: false }
             ).setTimestamp();
         return interaction.reply({ embeds: [profilEmbed] });
@@ -913,7 +944,7 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     // ==========================================
-    // 🚫 MODERASYON KOMUTLARI (SİCİL VERİ KAYITLI VE DM SEVKİYATLI)
+    // 🚫 MODERASYON KOMUTLARI
     // ==========================================
 
     if (commandName === 'tamyasakla') {
@@ -921,13 +952,11 @@ client.on('interactionCreate', async (interaction) => {
         const sebep = options.getString('sebep') || 'Belirtilmedi';
         if (!member) return interaction.reply({ content: '❌ Kullanıcı bulunamadı veya sunucuda değil.', flags: [MessageFlags.Ephemeral] });
 
-        // 📝 Sicil Veritabanına Kayıt
         profilGereksinim(member.id);
         const dbData = veriOku();
         dbData[member.id].sicil.banlar.push({ tür: 'BAN', sebep: sebep, yetkili: yetkili.tag, tarih: new Date().toLocaleString('tr-TR') });
         veriYaz(dbData);
 
-        // 📩 Kullanıcıya Ultra Detaylı DM Bildirimi
         const dmEmbed = new EmbedBuilder()
             .setColor('#ED4245')
             .setTitle('🚫 | Sunucudan Kalıcı Olarak Yasaklandınız!')
@@ -1005,7 +1034,6 @@ client.on('interactionCreate', async (interaction) => {
         const sebep = options.getString('sebep') || 'Belirtilmedi';
         if (!member) return interaction.reply({ content: '❌ Kullanıcı bulunamadı.', flags: [MessageFlags.Ephemeral] });
 
-        // 📝 Sicil Mute Kaydı
         profilGereksinim(member.id);
         const dbData = veriOku();
         dbData[member.id].sicil.muteler.push({ sure: sure, sebep: sebep, yetkili: yetkili.tag, tarih: new Date().toLocaleString('tr-TR') });
@@ -1067,11 +1095,9 @@ client.on('interactionCreate', async (interaction) => {
         const dbData = veriOku();
         dbData[member.id].uyariSayisi = (dbData[member.id].uyariSayisi || 0) + 1;
         
-        // 📝 Sicil Tutanak Kaydı
         dbData[member.id].sicil.tutanaklar.push({ sebep: sebep, yetkili: yetkili.tag, tarih: new Date().toLocaleString('tr-TR') });
         veriYaz(dbData);
 
-        // 📩 Uyarı DM Sevkiyatı
         const dmEmbed = new EmbedBuilder()
             .setColor('#F1C40F')
             .setTitle('⚠️ | RESMİ UYARI (TUTANAK) ALDINIZ!')
@@ -1149,7 +1175,6 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.reply({ content: '✅ Duyuru yapıldı ve üyelere DM bildirimleri sevk ediliyor...', flags: [MessageFlags.Ephemeral] });
         await channel.send({ content: '@everyone', embeds: [embed] });
 
-        // 📩 Sunucudaki Tüm Üyelere Duyuruyu DM Olarak Atma Paneli
         const tumUyeler = await guild.members.fetch();
         tumUyeler.forEach(async (m) => {
             if (m.user.bot) return;
